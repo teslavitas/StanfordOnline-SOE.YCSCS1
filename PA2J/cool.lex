@@ -70,6 +70,7 @@ import java_cup.runtime.Symbol;
 %state INHERITS
 %state TYPESPEC
 %state STRING
+%state COMMENT
 SPACE = [ \n\t]+
 NAME = [a-zA-Z_][a-zA-Z_0-9]*
 
@@ -83,21 +84,18 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                      here, after the last %% separator */
                                   return new Symbol(TokenConstants.DARROW); }
 <YYINITIAL>[cC][lL][aA][sS][sS]	{//class
-					yybegin(CLASS_DEF);
-					return new Symbol(TokenConstants.CLASS);
+				    yybegin(CLASS_DEF);
+				    return new Symbol(TokenConstants.CLASS);
 				}
 <YYINITIAL,CLASS_DEF,INHERITS,TYPESPEC>[ \t]
                                 {}
-<YYINITIAL>[\n]                 {
-                                        curr_lineno++;
-                                }
-<YYINITIAL>[\n]                 {
-                                        curr_lineno++;
+<YYINITIAL,COMMENT>[\n]         {
+                                    curr_lineno++;
                                 }
 <CLASS_DEF>{NAME}               {
-                                        yybegin(YYINITIAL);
-                                        Symbol result = new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
-                                        return result;
+                                    yybegin(YYINITIAL);
+                                    Symbol result = new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
+                                    return result;
                                 }
 <YYINITIAL>[iI][nN][hH][eE][rR][iI][tT][sS]             
 				{//inherits
@@ -142,6 +140,7 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.ESAC);
                                 }
 <YYINITIAL>[nN][eE][wW]	        {//new
+				    yybegin(CLASS_DEF);
                                     return new Symbol(TokenConstants.NEW);
                                 }
 <YYINITIAL>[oO][fF]	        {//of
@@ -166,7 +165,15 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <YYINITIAL>[0-9]+               {
                                     return new Symbol(TokenConstants.INT_CONST, AbstractTable.inttable.addString(yytext()));
                                 }
-
+<YYINITIAL>"--"[^\n]*		{//single line comment
+				}
+<YYINITIAL>"(*"			{
+				    yybegin(COMMENT);
+				}
+<COMMENT>[^\n]			{}
+<COMMENT>"*)"			{
+				    yybegin(YYINITIAL);
+				}
 <YYINITIAL>"<-"                 {
                                     return new Symbol(TokenConstants.ASSIGN);
                                 }
