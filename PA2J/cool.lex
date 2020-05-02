@@ -106,12 +106,38 @@ class				{
                                     yybegin(INHERITS);
                                     return new Symbol(TokenConstants.INHERITS);
                                 }
+<YYINITIAL>if		        {
+                                    return new Symbol(TokenConstants.IF);
+                                }
+<YYINITIAL>then  	        {
+                                    return new Symbol(TokenConstants.THEN);
+                                }
+<YYINITIAL>else		        {
+                                    return new Symbol(TokenConstants.ELSE);
+                                }
+<YYINITIAL>fi		        {
+                                    return new Symbol(TokenConstants.FI);
+                                }
+
 <INHERITS,TYPESPEC>{NAME}       {
                                     yybegin(YYINITIAL);
                                     return new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                 }
+<YYINITIAL>true 	        {
+                                    return new Symbol(TokenConstants.BOOL_CONST, true);
+                                }
+<YYINITIAL>false 	        {
+                                    return new Symbol(TokenConstants.BOOL_CONST, false);
+                                }
 <YYINITIAL>{NAME}               {
                                     return new Symbol(TokenConstants.OBJECTID, AbstractTable.idtable.addString(yytext()));
+                                }
+<YYINITIAL>[0-9]+               {
+                                    return new Symbol(TokenConstants.INT_CONST, AbstractTable.inttable.addString(yytext()));
+                                }
+
+<YYINITIAL>"<-"                 {
+                                    return new Symbol(TokenConstants.ASSIGN);
                                 }
 <YYINITIAL>"{"                  {
                                     return new Symbol(TokenConstants.LBRACE);
