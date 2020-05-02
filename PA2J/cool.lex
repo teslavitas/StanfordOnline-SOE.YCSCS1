@@ -82,12 +82,9 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                      Further lexical rules should be defined
                                      here, after the last %% separator */
                                   return new Symbol(TokenConstants.DARROW); }
-class				{
+<YYINITIAL>[cC][lL][aA][sS][sS]	{//class
 					yybegin(CLASS_DEF);
 					return new Symbol(TokenConstants.CLASS);
-				}
-<YYINITIAL>if			{
-				    return new Symbol(TokenConstants.IF);
 				}
 <YYINITIAL,CLASS_DEF,INHERITS,TYPESPEC>[ \t]
                                 {}
@@ -102,31 +99,65 @@ class				{
                                         Symbol result = new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                         return result;
                                 }
-<YYINITIAL>inherits             {
+<YYINITIAL>[iI][nN][hH][eE][rR][iI][tT][sS]             
+				{//inherits
                                     yybegin(INHERITS);
                                     return new Symbol(TokenConstants.INHERITS);
                                 }
-<YYINITIAL>if		        {
+<YYINITIAL>[iI][fF]	        {//if
                                     return new Symbol(TokenConstants.IF);
                                 }
-<YYINITIAL>then  	        {
+<YYINITIAL>[tT][hH][eE][nN]     {//then
                                     return new Symbol(TokenConstants.THEN);
                                 }
-<YYINITIAL>else		        {
+<YYINITIAL>[eE][lL][sS][eE]     {//else
                                     return new Symbol(TokenConstants.ELSE);
                                 }
-<YYINITIAL>fi		        {
+<YYINITIAL>[fF][iI]	        {//fi
                                     return new Symbol(TokenConstants.FI);
                                 }
-
+<YYINITIAL>[iI][nN]	        {//in
+                                    return new Symbol(TokenConstants.IN);
+                                }
+<YYINITIAL>[iI][sS][vV][oO][iI][dD]
+			        {//isvoid
+                                    return new Symbol(TokenConstants.ISVOID);
+                                }
+<YYINITIAL>[lL][eE][tT]	        {//let
+                                    return new Symbol(TokenConstants.LET);
+                                }
+<YYINITIAL>[lL][oO][oO][pP]	{//loop
+                                    return new Symbol(TokenConstants.LOOP);
+                                }
+<YYINITIAL>[pP][oO][oO][lL]     {//pool
+                                    return new Symbol(TokenConstants.POOL);
+                                }
+<YYINITIAL>[wW][hH][iI][lL][eE] {//while
+                                    return new Symbol(TokenConstants.WHILE);
+                                }
+<YYINITIAL>[cC][aA][sS][eE]     {//case
+                                    return new Symbol(TokenConstants.CASE);
+                                }
+<YYINITIAL>[eE][sS][aA][cC]     {//esac
+                                    return new Symbol(TokenConstants.ESAC);
+                                }
+<YYINITIAL>[nN][eE][wW]	        {//new
+                                    return new Symbol(TokenConstants.NEW);
+                                }
+<YYINITIAL>[oO][fF]	        {//of
+                                    return new Symbol(TokenConstants.OF);
+                                }
+<YYINITIAL>[nN][oO][tT]	        {//not
+                                    return new Symbol(TokenConstants.NOT);
+                                }
 <INHERITS,TYPESPEC>{NAME}       {
                                     yybegin(YYINITIAL);
                                     return new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                 }
-<YYINITIAL>true 	        {
+<YYINITIAL>t[rR][uU][eE]        {
                                     return new Symbol(TokenConstants.BOOL_CONST, true);
                                 }
-<YYINITIAL>false 	        {
+<YYINITIAL>f[aA][lL][sS][eE]    {
                                     return new Symbol(TokenConstants.BOOL_CONST, false);
                                 }
 <YYINITIAL>{NAME}               {
