@@ -87,7 +87,8 @@ import java_cup.runtime.Symbol;
 %state STRING_ERR
 %state COMMENT
 SPACE = [ \n\t]+
-NAME = [a-zA-Z_][a-zA-Z_0-9]*
+LOWERNAME = [a-z_][a-zA-Z_0-9]*
+UPPERNAME = [A-Z][a-zA-Z_0-9]*
 
 %class CoolLexer
 %cup
@@ -106,7 +107,7 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <YYINITIAL,COMMENT>[\n]         {
                                     curr_lineno++;
                                 }
-<CLASS_DEF>{NAME}               {
+<CLASS_DEF>{UPPERNAME} 		{
                                     yybegin(YYINITIAL);
                                     Symbol result = new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                     return result;
@@ -163,7 +164,8 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <YYINITIAL>[nN][oO][tT]	        {//not
                                     return new Symbol(TokenConstants.NOT);
                                 }
-<INHERITS,TYPESPEC>{NAME}       {
+<INHERITS,TYPESPEC,YYINITIAL>{UPPERNAME}  
+				{
                                     yybegin(YYINITIAL);
                                     return new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                 }
@@ -173,7 +175,7 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <YYINITIAL>f[aA][lL][sS][eE]    {//false
                                     return new Symbol(TokenConstants.BOOL_CONST, false);
                                 }
-<YYINITIAL>{NAME}               {
+<YYINITIAL>{LOWERNAME}          {
                                     return new Symbol(TokenConstants.OBJECTID, AbstractTable.idtable.addString(yytext()));
                                 }
 <YYINITIAL>[0-9]+               {
