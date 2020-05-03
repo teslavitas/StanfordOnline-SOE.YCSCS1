@@ -34,6 +34,12 @@ import java_cup.runtime.Symbol;
 	return filename;
     }
     private String currentString;
+    private Boolean isTooLong(String s) {
+	return (s.length() > MAX_STR_CONST);
+    }
+    private Boolean hasNullChar(String s) {
+	return (s.contains("\0"));
+    }
 %}
 
 %init{
@@ -58,6 +64,12 @@ import java_cup.runtime.Symbol;
     case YYINITIAL:
 	/* nothing special to do in the initial state */
 	break;
+    case COMMENT:
+	return new Symbol(TokenConstants.ERROR,
+		    AbstractTable.idtable.addString("EOF in comment"));
+    case STRING:
+	return new Symbol(TokenConstants.ERROR,
+		AbstractTable.idtable.addString("EOF in string constant"));
 	/* If necessary, add code for other states here, e.g:
 	   case COMMENT:
 	   ...
@@ -76,7 +88,6 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 
 %class CoolLexer
 %cup
-
 %%
 
 <YYINITIAL>"=>"			{ /* Sample lexical rule for "=>" arrow.
@@ -174,6 +185,10 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <COMMENT>"*)"			{
 				    yybegin(YYINITIAL);
 				}
+<YYINITIAL>"*)"			{
+				    return new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("Unmatched *)"));
+				}
 <YYINITIAL>"<-"                 {
                                     return new Symbol(TokenConstants.ASSIGN);
                                 }
@@ -214,6 +229,9 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <YYINITIAL>"<"                  {
                                     return new Symbol(TokenConstants.LT);
                                 }
+<YYINITIAL>"<="                 {
+                                    return new Symbol(TokenConstants.LE);
+                                }
 <YYINITIAL>"."                  {
                                     return new Symbol(TokenConstants.DOT);
                                 }
@@ -246,10 +264,44 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 <STRING>\\f                     {
                                     currentString += "\f";
                                 }
+<STRING>\n			{
+				    yybegin(YYINITIAL);
+				    
+				    Symbol result;
+
+				    //  !!! there is a bug with line number here. It should be increased by 1 on a next token, not current
+				    curr_lineno++;
+				    if(isTooLong(currentString)){
+					result = new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String constant too long"));
+					curr_lineno++;
+				    }else
+				    if(hasNullChar(currentString)){
+					result = new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String contains null character"));
+				    }else{
+	    				    result = new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("Unterminated string constant"));
+				    }
+				    
+				    return result;
+				}
 <STRING>\"                      {//"
-                                    yybegin(YYINITIAL);
+				    yybegin(YYINITIAL);
+				    if(isTooLong(currentString)){
+					return new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String constant too long closed"));
+				    }
+				    if(hasNullChar(currentString)){
+					return new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String contains null character"));
+				    }
+                                    
                                     return new Symbol(TokenConstants.STR_CONST,AbstractTable.stringtable.addString(currentString));
                                 }
+.				{
+				    return new Symbol(TokenConstants.ERROR,AbstractTable.idtable.addString(yytext()));
+				}
 .                               { /* This rule should be the very last
                                      in your lexical specification and
                                      will match match everything not
