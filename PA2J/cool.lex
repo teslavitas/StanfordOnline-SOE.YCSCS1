@@ -82,6 +82,7 @@ import java_cup.runtime.Symbol;
 %state INHERITS
 %state TYPESPEC
 %state STRING
+%state STRING_ERR
 %state COMMENT
 SPACE = [ \n\t]+
 NAME = [a-zA-Z_][a-zA-Z_0-9]*
@@ -249,54 +250,46 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                     currentString = "";
                                     yybegin(STRING);
                                 }
-<STRING>[^\"^\n^\n^\t^\f]       {//"
-                                    currentString += yytext();
+<STRING>[^\"^\n]|\\n|\\b|\\t|\\f                     
+				{//"
+				    String toAdd = yytext();
+				    if(toAdd.equals("\\n")){
+					toAdd = "\n";
+				    }
+				    if(toAdd.equals("\\b"))
+					toAdd = "\b";
+				    if(toAdd.equals("\\t"))
+					toAdd = "\t";
+				    if(toAdd.equals("\\f"))
+					toAdd = "\f";
+                                    currentString += toAdd;
+				    if(isTooLong(currentString)){
+					yybegin(STRING_ERR);
+					return new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String constant too long"));
+				    }
+				    if(hasNullChar(currentString)){
+					yybegin(STRING_ERR);
+					return new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("String contains null character"));
+				    }
                                 }
-<STRING>\\n                     {
-                                    currentString += "\n";
-                                }
-<STRING>\\b                     {
-                                    currentString += "\b";
-                                }
-<STRING>\\t                     {
-                                    currentString += "\t";
-                                }
-<STRING>\\f                     {
-                                    currentString += "\f";
-                                }
+<STRING_ERR>[^\"^\n]*[\"\n]	{//"
+				    int index = yytext().length() - 1;
+				    if(yytext().charAt(index) == '\n'){
+				    curr_lineno++;
+				    }
+				    yybegin(YYINITIAL);
+				}
 <STRING>\n			{
 				    yybegin(YYINITIAL);
-				    
-				    Symbol result;
-
-				    //  !!! there is a bug with line number here. It should be increased by 1 on a next token, not current
 				    curr_lineno++;
-				    if(isTooLong(currentString)){
-					result = new Symbol(TokenConstants.ERROR,
-					    AbstractTable.idtable.addString("String constant too long"));
-					curr_lineno++;
-				    }else
-				    if(hasNullChar(currentString)){
-					result = new Symbol(TokenConstants.ERROR,
-					    AbstractTable.idtable.addString("String contains null character"));
-				    }else{
-	    				    result = new Symbol(TokenConstants.ERROR,
-					    AbstractTable.idtable.addString("Unterminated string constant"));
-				    }
 				    
-				    return result;
+	    			    return  new Symbol(TokenConstants.ERROR,
+					    AbstractTable.idtable.addString("Unterminated string constant"));
 				}
 <STRING>\"                      {//"
-				    yybegin(YYINITIAL);
-				    if(isTooLong(currentString)){
-					return new Symbol(TokenConstants.ERROR,
-					    AbstractTable.idtable.addString("String constant too long closed"));
-				    }
-				    if(hasNullChar(currentString)){
-					return new Symbol(TokenConstants.ERROR,
-					    AbstractTable.idtable.addString("String contains null character"));
-				    }
-                                    
+				    yybegin(YYINITIAL);                        
                                     return new Symbol(TokenConstants.STR_CONST,AbstractTable.stringtable.addString(currentString));
                                 }
 .				{
