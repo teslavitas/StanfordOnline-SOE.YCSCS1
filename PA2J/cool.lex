@@ -254,7 +254,7 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     currentString = "";
                                     yybegin(STRING);
                                 }
-<STRING>[^\"^\n]|\\n|\\b|\\t|\\f|\\\\|\\\"
+<STRING>\\?[^\"^\n]|\\n|\\b|\\t|\\f|\\\\|\\\"|\\\n
 				{//"
 				    String toAdd = yytext();
 				    if(toAdd.equals("\\n")){
@@ -270,6 +270,13 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
 					toAdd = "\\";
 				    if(toAdd.equals("\\\""))
 					toAdd = "\"";
+				    if(toAdd.equals("\\\n"))
+				    {
+					curr_lineno++;
+					toAdd = "\n";
+				    }
+				    if(toAdd.length() == 2 && toAdd.charAt(0)=='\\')
+					toAdd = toAdd.substring(1);
                                     currentString += toAdd;
 				    if(isTooLong(currentString)){
 					yybegin(STRING_ERR);
