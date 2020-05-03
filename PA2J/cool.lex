@@ -153,10 +153,10 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                     yybegin(YYINITIAL);
                                     return new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                 }
-<YYINITIAL>t[rR][uU][eE]        {
+<YYINITIAL>t[rR][uU][eE]        {//true
                                     return new Symbol(TokenConstants.BOOL_CONST, true);
                                 }
-<YYINITIAL>f[aA][lL][sS][eE]    {
+<YYINITIAL>f[aA][lL][sS][eE]    {//false
                                     return new Symbol(TokenConstants.BOOL_CONST, false);
                                 }
 <YYINITIAL>{NAME}               {
@@ -224,6 +224,7 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.COMMA);
                                 }
 <YYINITIAL>"@"                  {
+				    yybegin(CLASS_DEF);
                                     return new Symbol(TokenConstants.AT);
                                 }
 <YYINITIAL>\"                   {//"
