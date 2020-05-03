@@ -252,7 +252,7 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
                                     currentString = "";
                                     yybegin(STRING);
                                 }
-<STRING>[^\"^\n]|\\n|\\b|\\t|\\f                     
+<STRING>[^\"^\n]|\\n|\\b|\\t|\\f|\\\\|\\\"
 				{//"
 				    String toAdd = yytext();
 				    if(toAdd.equals("\\n")){
@@ -264,6 +264,10 @@ NAME = [a-zA-Z_][a-zA-Z_0-9]*
 					toAdd = "\t";
 				    if(toAdd.equals("\\f"))
 					toAdd = "\f";
+				    if(toAdd.equals("\\\\"))
+					toAdd = "\\";
+				    if(toAdd.equals("\\\""))
+					toAdd = "\"";
                                     currentString += toAdd;
 				    if(isTooLong(currentString)){
 					yybegin(STRING_ERR);
