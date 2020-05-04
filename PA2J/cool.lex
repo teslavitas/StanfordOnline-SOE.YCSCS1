@@ -85,7 +85,7 @@ import java_cup.runtime.Symbol;
 %state STRING_ERR
 %state COMMENT
 
-LOWERNAME = [a-z_][a-zA-Z_0-9]*
+LOWERNAME = [a-z][a-zA-Z_0-9]*
 UPPERNAME = [A-Z][a-zA-Z_0-9]*
 
 %class CoolLexer
