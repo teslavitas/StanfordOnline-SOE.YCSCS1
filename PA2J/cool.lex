@@ -80,13 +80,10 @@ import java_cup.runtime.Symbol;
     }
     return new Symbol(TokenConstants.EOF);
 %eofval}
-%state CLASS_DEF
-%state INHERITS
-%state TYPESPEC
 %state STRING
 %state STRING_ERR
 %state COMMENT
-SPACE = [ \n\t]+
+
 LOWERNAME = [a-z_][a-zA-Z_0-9]*
 UPPERNAME = [A-Z][a-zA-Z_0-9]*
 
@@ -99,22 +96,14 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                      here, after the last %% separator */
                                   return new Symbol(TokenConstants.DARROW); }
 <YYINITIAL>[cC][lL][aA][sS][sS]	{//class
-				    yybegin(CLASS_DEF);
 				    return new Symbol(TokenConstants.CLASS);
 				}
-<YYINITIAL,CLASS_DEF,INHERITS,TYPESPEC>[ \t]
-                                {}
+<YYINITIAL>[ \t]                {}
 <YYINITIAL,COMMENT>[\n]         {
                                     curr_lineno++;
                                 }
-<CLASS_DEF>{UPPERNAME} 		{
-                                    yybegin(YYINITIAL);
-                                    Symbol result = new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
-                                    return result;
-                                }
 <YYINITIAL>[iI][nN][hH][eE][rR][iI][tT][sS]             
 				{//inherits
-                                    yybegin(INHERITS);
                                     return new Symbol(TokenConstants.INHERITS);
                                 }
 <YYINITIAL>[iI][fF]	        {//if
@@ -155,7 +144,6 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.ESAC);
                                 }
 <YYINITIAL>[nN][eE][wW]	        {//new
-				    yybegin(CLASS_DEF);
                                     return new Symbol(TokenConstants.NEW);
                                 }
 <YYINITIAL>[oO][fF]	        {//of
@@ -164,9 +152,7 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
 <YYINITIAL>[nN][oO][tT]	        {//not
                                     return new Symbol(TokenConstants.NOT);
                                 }
-<INHERITS,TYPESPEC,YYINITIAL>{UPPERNAME}  
-				{
-                                    yybegin(YYINITIAL);
+<YYINITIAL>{UPPERNAME} 		{
                                     return new Symbol(TokenConstants.TYPEID, AbstractTable.idtable.addString(yytext()));
                                 }
 <YYINITIAL>t[rR][uU][eE]        {//true
@@ -213,7 +199,6 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.SEMI);
                                 }
 <YYINITIAL>":"                  {
-                                    yybegin(TYPESPEC);
                                     return new Symbol(TokenConstants.COLON);
                                 }
 <YYINITIAL>"+"                  {
@@ -247,7 +232,6 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.COMMA);
                                 }
 <YYINITIAL>"@"                  {
-				    yybegin(CLASS_DEF);
                                     return new Symbol(TokenConstants.AT);
                                 }
 <YYINITIAL>\"                   {//"
