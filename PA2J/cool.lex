@@ -34,6 +34,7 @@ import java_cup.runtime.Symbol;
 	return filename;
     }
     private String currentString;
+    private int nestedCommentLevel;
     private Boolean isTooLong(String s) {
 	return (s.length() > MAX_STR_CONST);
     }
@@ -98,7 +99,7 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
 <YYINITIAL>[cC][lL][aA][sS][sS]	{//class
 				    return new Symbol(TokenConstants.CLASS);
 				}
-<YYINITIAL>[ \t]                {}
+<YYINITIAL>[ \t\f\v\r]          {}
 <YYINITIAL,COMMENT>[\n]         {
                                     curr_lineno++;
                                 }
@@ -170,11 +171,20 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
 <YYINITIAL>"--"[^\n]*		{//single line comment
 				}
 <YYINITIAL>"(*"			{
+				    this.nestedCommentLevel = 0;
 				    yybegin(COMMENT);
 				}
 <COMMENT>[^\n]			{}
+<COMMENT>"(*"			{
+
+				    this.nestedCommentLevel++;
+				}
 <COMMENT>"*)"			{
-				    yybegin(YYINITIAL);
+				    if(this.nestedCommentLevel == 0)
+				    {
+					yybegin(YYINITIAL);
+				    }
+				    this.nestedCommentLevel--;
 				}
 <YYINITIAL>"*)"			{
 				    return new Symbol(TokenConstants.ERROR,
@@ -292,7 +302,10 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     return new Symbol(TokenConstants.STR_CONST,AbstractTable.stringtable.addString(currentString));
                                 }
 .				{
-				    return new Symbol(TokenConstants.ERROR,AbstractTable.idtable.addString(yytext()));
+				    //for some reason carriage return (\r) is not detected by a whitespace regexp
+				    if(!yytext().equals("\013")){
+					return new Symbol(TokenConstants.ERROR,AbstractTable.idtable.addString(yytext()));
+				    }
 				}
 .                               { /* This rule should be the very last
                                      in your lexical specification and
