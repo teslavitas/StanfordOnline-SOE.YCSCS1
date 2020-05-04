@@ -36,7 +36,7 @@ import java_cup.runtime.Symbol;
     private String currentString;
     private int nestedCommentLevel;
     private Boolean isTooLong(String s) {
-	return (s.length() > MAX_STR_CONST);
+	return (s.length() >= MAX_STR_CONST);
     }
     private Boolean hasNullChar(String s) {
 	return (s.contains("\0"));
@@ -248,7 +248,7 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
                                     currentString = "";
                                     yybegin(STRING);
                                 }
-<STRING>\\?[^\"^\n]|\\n|\\b|\\t|\\f|\\\\|\\\"|\\\n
+<STRING>\\?[^\"^\n]|\\n|\\b|\\t|\\f|\\\\|\\\"|\\\n|"^"
 				{//"
 				    String toAdd = yytext();
 				    if(toAdd.equals("\\n")){
@@ -286,7 +286,7 @@ UPPERNAME = [A-Z][a-zA-Z_0-9]*
 <STRING_ERR>[^\"^\n]*[\"\n]	{//"
 				    int index = yytext().length() - 1;
 				    if(yytext().charAt(index) == '\n'){
-				    curr_lineno++;
+					curr_lineno++;
 				    }
 				    yybegin(YYINITIAL);
 				}
