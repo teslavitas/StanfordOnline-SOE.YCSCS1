@@ -70,6 +70,7 @@ nonterminal class_c class;
 nonterminal Features feature_list;
 nonterminal method method_nonterm;
 nonterminal Formals formal_list;
+nonterminal formalc formal;
 nonterminal Expressions expression_list;
 nonterminal Expressions argument_list;
 nonterminal Expression expression;
@@ -112,10 +113,21 @@ feature_list
         | feature_list:fl method_nonterm:m
             {: RESULT = fl.appendElement(m); :}
 	;
+formal_list
+	::= /* empty*/
+	    {: RESULT = new Formals(curr_lineno()); :}
+	| formal:f
+	    {: RESULT = new Formals(curr_lineno()).appendElement(f); :}
+	| formal_list:fl COMMA formal:f
+	    {: RESULT = fl.appendElement(f); :}
+	;
+formal
+	::= OBJECTID:id COLON TYPEID:typeid
+	    {: RESULT = new formalc(curr_lineno(), id, typeid); :}
+	;
 method_nonterm
-        /* TODO: add flist of arguments to the rule*/
-        ::= OBJECTID:id LPAREN RPAREN COLON TYPEID:t LBRACE expression:e RBRACE /*not sure if needed*/ SEMI
-            {: RESULT = new method(curr_lineno(), id, new Formals(curr_lineno()), t, e); :}
+        ::= OBJECTID:id LPAREN formal_list:formals  RPAREN COLON TYPEID:t LBRACE expression:e RBRACE /*not sure if needed*/ SEMI
+            {: RESULT = new method(curr_lineno(), id, formals, t, e); :}
 	;
 argument_list
 	::= /* empty */
