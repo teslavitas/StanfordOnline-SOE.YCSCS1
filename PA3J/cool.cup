@@ -71,7 +71,9 @@ nonterminal Features feature_list;
 nonterminal method method_nonterm;
 nonterminal Formals formal_list;
 nonterminal Expressions expression_list;
+nonterminal Expressions argument_list;
 nonterminal Expression expression;
+
 
 /* Precedence declarations go here. */
 
@@ -115,19 +117,56 @@ method_nonterm
         ::= OBJECTID:id LPAREN RPAREN COLON TYPEID:t LBRACE expression:e RBRACE /*not sure if needed*/ SEMI
             {: RESULT = new method(curr_lineno(), id, new Formals(curr_lineno()), t, e); :}
 	;
-expression_list
-	::= expression:e
+argument_list
+	::= /* empty */
+	    {: RESULT = new Expressions(curr_lineno()); :}
+	| expression:e
 	    {: RESULT = new Expressions(curr_lineno()).appendElement(e); :}
-	| expression_list:el COMMA expression:e
+	| argument_list:el COMMA expression:e
+	    {: RESULT = el.appendElement(e); :}
+	;
+expression_list
+	::= expression:e SEMI
+	    {: RESULT = new Expressions(curr_lineno()).appendElement(e); :}
+	| expression_list:el expression:e SEMI
 	    {: RESULT = el.appendElement(e); :}
 	;
 expression
 	/* method call with skipped self*/
-	::= OBJECTID:id LPAREN expression_list:actual RPAREN
+	::= OBJECTID:id LPAREN argument_list:actual RPAREN
 	    {: RESULT = new dispatch(curr_lineno(), new object(curr_lineno(), AbstractTable.idtable.addString("self")),
 				     id, actual); :}
+	|
+	/* full method call*/
+	expression:caller DOT OBJECTID:id LPAREN argument_list:actual RPAREN
+	    {: RESULT = new dispatch(curr_lineno(), caller, id, actual); :}
+	|
+	/* expression block */
+	LBRACE expression_list:el RBRACE
+	    {: RESULT = new block(curr_lineno(), el); :}
+	|
+	/* object creation*/
+	NEW TYPEID:t
+	    {: RESULT = new new_(curr_lineno(), t); :}
+	|
+	/* isvoid check*/
+	ISVOID expression:e
+	    {: RESULT = new isvoid(curr_lineno(), e); :}
+	|
+	/* (expr) */
+	LPAREN expression:e RPAREN
+	    {: RESULT = e; :}
+	|
+	/* ID */
+	OBJECTID:id
+	    {: RESULT = new object(curr_lineno(),id); :}
+	|
+	/* int constant*/
+	INT_CONST:i
+	    {: RESULT = new int_const(curr_lineno(), i); :}
 	|
 	/* string constant*/
 	STR_CONST:s
 	    {: RESULT = new string_const(curr_lineno(), s); :}
 	;
+
