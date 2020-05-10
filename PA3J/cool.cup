@@ -74,6 +74,8 @@ nonterminal formalc formal;
 nonterminal Expressions expression_list;
 nonterminal Expressions argument_list;
 nonterminal Expression expression;
+nonterminal Cases case_branch_list;
+nonterminal branch case_branch;
 
 
 /* Precedence declarations go here. */
@@ -143,6 +145,16 @@ expression_list
 	| expression_list:el expression:e SEMI
 	    {: RESULT = el.appendElement(e); :}
 	;
+case_branch_list
+	::= case_branch:cb
+	    {: RESULT = new Cases(curr_lineno()).appendElement(cb); :}
+	| case_branch_list:cbl case_branch:cb
+	    {: RESULT = cbl.appendElement(cb); :}
+	;
+case_branch
+	::= OBJECTID:id COLON TYPEID:typeid DARROW expression:e SEMI
+	    {: RESULT = new branch(curr_lineno(), id, typeid, e); :}
+	;
 expression
 	/* method call with skipped self*/
 	::= OBJECTID:id LPAREN argument_list:actual RPAREN
@@ -157,6 +169,9 @@ expression
 	LBRACE expression_list:el RBRACE
 	    {: RESULT = new block(curr_lineno(), el); :}
 	|
+	CASE expression:e OF case_branch_list:cbl ESAC
+	    {: RESULT = new typcase(curr_lineno(),e,cbl); :}
+	|
 	/* object creation*/
 	NEW TYPEID:t
 	    {: RESULT = new new_(curr_lineno(), t); :}
@@ -164,6 +179,42 @@ expression
 	/* isvoid check*/
 	ISVOID expression:e
 	    {: RESULT = new isvoid(curr_lineno(), e); :}
+	|	
+	/* expr + expr*/
+	expression:e1 PLUS expression:e2
+	    {: RESULT = new plus(curr_lineno(), e1, e2); :}
+	|	
+	/* expr - expr*/
+	expression:e1 MINUS expression:e2
+	    {: RESULT = new sub(curr_lineno(), e1, e2); :}
+	|	
+	/* expr * expr*/
+	expression:e1 MULT expression:e2
+	    {: RESULT = new mul(curr_lineno(), e1, e2); :}
+	|	
+	/* expr / expr*/
+	expression:e1 DIV expression:e2
+	    {: RESULT = new divide(curr_lineno(), e1, e2); :}
+	|	
+	/* ~expr */
+	NEG expression:e
+	    {: RESULT = new neg(curr_lineno(), e); :}
+	|	
+	/* expr < expr*/
+	expression:e1 LT expression:e2
+	    {: RESULT = new lt(curr_lineno(), e1, e2); :}
+	|	
+	/* expr <= expr*/
+	expression:e1 LE expression:e2
+	    {: RESULT = new leq(curr_lineno(), e1, e2); :}
+	|	
+	/* expr = expr*/
+	expression:e1 EQ expression:e2
+	    {: RESULT = new eq(curr_lineno(), e1, e2); :}
+    	/* not*/
+	|
+	NOT expression:e
+	    {: RESULT = new comp(curr_lineno(), e); :}
 	|
 	/* (expr) */
 	LPAREN expression:e RPAREN
@@ -180,5 +231,9 @@ expression
 	/* string constant*/
 	STR_CONST:s
 	    {: RESULT = new string_const(curr_lineno(), s); :}
+	|
+	/* false */
+	BOOL_CONST:b
+	    {: RESULT = new bool_const(curr_lineno(), b); :}
 	;
 
