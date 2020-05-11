@@ -80,7 +80,17 @@ nonterminal let let_part;
 nonterminal attr attribute;
 
 /* Precedence declarations go here. */
+precedence right ASSIGN;
+precedence left NOT;
+precedence nonassoc LE, LT, EQ;
+precedence left PLUS, MINUS;
+precedence left MULT, DIV;
+precedence left ISVOID;
+precedence left NEG;
+precedence left AT;
+precedence left DOT;
 
+/* Gramar*/
 program	
 	::= class_list:cl
 	    {: RESULT = new programc(curr_lineno(), cl); :}
