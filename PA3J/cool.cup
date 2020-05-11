@@ -132,7 +132,12 @@ feature_list
         /* multiple features with an attribute in the end*/
         | feature_list:fl attribute:a SEMI
             {: RESULT = fl.appendElement(a); :}
-/*	| error SEMI */
+	/* single error*/
+	| error SEMI
+	    {: RESULT = new Features(curr_lineno()); :}
+	/* feature list win an error in the end*/
+	| feature_list:fl error SEMI 
+	    {: RESULT = fl; :}
 	;
 attribute
 	/* attribute with no body*/
@@ -201,8 +206,8 @@ let_part
 		RESULT = lp;
 	    :}
 	/* error preceded by a let*/
-/*	| letpart:lp COMMA error
-	    {: RESULT = lp :}*/
+	| let_part:lp COMMA error
+	    {: RESULT = lp; :}
 	;
 expression
 	::=
@@ -236,7 +241,8 @@ expression
 	    {: RESULT = new block(curr_lineno(), el); :}
 	|
 	/* error in expression block*/
-/*	| LBRACE error RBRACE */
+	LBRACE error RBRACE
+	|
 	/* let expression */
 	LET let_part:lp IN expression:e
 	    {: 
