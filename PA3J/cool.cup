@@ -76,7 +76,8 @@ nonterminal Expressions argument_list;
 nonterminal Expression expression;
 nonterminal Cases case_branch_list;
 nonterminal branch case_branch;
-
+nonterminal let let_part;
+nonterminal attr attribute;
 
 /* Precedence declarations go here. */
 
@@ -108,12 +109,27 @@ class
 feature_list
 	::= /* empty */
 	    {: RESULT = new Features(curr_lineno()); :}
-	/* single feature*/
+	/* single method*/
         | method_nonterm:m
             {: RESULT = new Features(curr_lineno()).appendElement(m); :} 
-        /* multiple features with method in the end*/
+	/* single atrribute*/
+        | attribute:a
+            {: RESULT = new Features(curr_lineno()).appendElement(a); :} 
+        /* multiple features with a method in the end*/
         | feature_list:fl method_nonterm:m
             {: RESULT = fl.appendElement(m); :}
+        /* multiple features with an attribute in the end*/
+        | feature_list:fl attribute:a
+            {: RESULT = fl.appendElement(a); :}
+	;
+attribute
+	/* attribute with no body*/
+	::= OBJECTID:id COLON TYPEID:typeid
+	    {: RESULT = new attr(curr_lineno(), id, typeid, new no_expr(curr_lineno())); :}
+	/* attrbitute with body*/
+	|
+	OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
+	    {: RESULT = new attr(curr_lineno(), id, typeid, e); :}
 	;
 formal_list
 	::= /* empty*/
@@ -155,9 +171,30 @@ case_branch
 	::= OBJECTID:id COLON TYPEID:typeid DARROW expression:e SEMI
 	    {: RESULT = new branch(curr_lineno(), id, typeid, e); :}
 	;
+let_part
+	/* let with no expression*/
+	::= OBJECTID:id COLON TYPEID:typeid
+	    {: RESULT = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), new no_expr(curr_lineno())); :}
+	/* let with expression*/
+	| OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
+	    {: RESULT = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); :}
+	| let_part:lp COMMA OBJECTID:id COLON TYPEID:typeid
+	    {: 
+		RESULT = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), lp); :}
+	| let_part:lp COMMA OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
+	    {: 
+		lp.body = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); 
+		RESULT = lp;
+	    :}
+	;
 expression
+	::=
+	/* variable assignment*/
+	OBJECTID:id ASSIGN expression:e
+	    {: RESULT = new assign(curr_lineno(), id, e); :}
+	|
 	/* method call with skipped self*/
-	::= OBJECTID:id LPAREN argument_list:actual RPAREN
+	OBJECTID:id LPAREN argument_list:actual RPAREN
 	    {: RESULT = new dispatch(curr_lineno(), new object(curr_lineno(), AbstractTable.idtable.addString("self")),
 				     id, actual); :}
 	|
@@ -165,9 +202,32 @@ expression
 	expression:caller DOT OBJECTID:id LPAREN argument_list:actual RPAREN
 	    {: RESULT = new dispatch(curr_lineno(), caller, id, actual); :}
 	|
+	/* full method call with explicit caller type */
+	expression:caller AT TYPEID:typeid DOT OBJECTID:id LPAREN argument_list:actual RPAREN
+	    {: RESULT = new static_dispatch(curr_lineno(), caller, typeid, id, actual); :}
+	|
+	/* if statement*/
+	IF expression:condition THEN expression:e1 ELSE expression:e2 FI
+	    {: RESULT = new cond(curr_lineno(), condition, e1, e2); :}
+	|
+	/* while loop*/
+	WHILE expression:condition LOOP expression:body POOL
+	    {: RESULT = new loop(curr_lineno(), condition, body); :}
+	|
 	/* expression block */
 	LBRACE expression_list:el RBRACE
 	    {: RESULT = new block(curr_lineno(), el); :}
+	|
+	/* let expression */
+	LET let_part:lp IN expression:e
+	    {: 
+		let currentLet = lp;
+		while(currentLet.body instanceof let){
+		    currentLet = (let)currentLet.body;
+		}
+		currentLet.body = e;
+		RESULT = lp;
+	    :}
 	|
 	CASE expression:e OF case_branch_list:cbl ESAC
 	    {: RESULT = new typcase(curr_lineno(),e,cbl); :}
@@ -236,4 +296,3 @@ expression
 	BOOL_CONST:b
 	    {: RESULT = new bool_const(curr_lineno(), b); :}
 	;
-
