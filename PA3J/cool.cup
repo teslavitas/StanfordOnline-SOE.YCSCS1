@@ -98,23 +98,27 @@ program
 
 class_list
 	/* single class */
-	::= class:c
+	::= class:c SEMI
 	    {: RESULT = (new Classes(curr_lineno())).appendElement(c); :}
 	/* several classes */
-	| class_list:cl class:c
+	| class_list:cl class:c SEMI
 	    {: RESULT = cl.appendElement(c); :}
+	/* single error class*/
+	| error SEMI
+	    {: RESULT = (new Classes(curr_lineno())); :}
+	/* error class in the end of the list*/
+	| class_list:cl error SEMI
+	    {: RESULT = cl; :}
 	;
 
 /* If no parent is specified, the class inherits from the Object class */
 class
-	::= CLASS TYPEID:n LBRACE feature_list:f RBRACE SEMI
+	::= CLASS TYPEID:n LBRACE feature_list:f RBRACE
 	    {: RESULT = new class_c(curr_lineno(), n, 
 		                   AbstractTable.idtable.addString("Object"), 
 				   f, curr_filename()); :}
-	| CLASS TYPEID:n INHERITS TYPEID:p LBRACE feature_list:f RBRACE SEMI
+	| CLASS TYPEID:n INHERITS TYPEID:p LBRACE feature_list:f RBRACE
 	    {: RESULT = new class_c(curr_lineno(), n, p, f, curr_filename()); :}
-	/* errors in class*/
-	| error RBRACE SEMI  
 	;
 /* Feature list may be empty, but no empty features in list. */
 feature_list
@@ -177,6 +181,12 @@ expression_list
 	    {: RESULT = new Expressions(curr_lineno()).appendElement(e); :}
 	| expression_list:el expression:e SEMI
 	    {: RESULT = el.appendElement(e); :}
+	/* signle error in expression list*/
+	| error SEMI
+	    {: RESULT = new Expressions(curr_lineno()); :}
+	/* error in the end of the list*/
+	| expression_list:el error SEMI
+	    {: RESULT = el; :}
 	;
 case_branch_list
 	::= case_branch:cb
@@ -197,17 +207,51 @@ let_part
 	    {: RESULT = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); :}
 	/* let with no expression preceded by another let */
 	| let_part:lp COMMA OBJECTID:id COLON TYPEID:typeid
-	    {: 
-		RESULT = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), lp); :}
+	    {: 	
+		let currentLet = lp;
+		while(currentLet.body instanceof let){
+		    currentLet = (let)currentLet.body;
+		}
+		currentLet.body = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), new no_expr(curr_lineno())); ;
+		RESULT = lp;
+	    :}
 	/* let with expression preceded by anoter let */
 	| let_part:lp COMMA OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
 	    {: 
-		lp.body = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); 
+		let currentLet = lp;
+		while(currentLet.body instanceof let){
+		    currentLet = (let)currentLet.body;
+		}
+		currentLet.body = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); 
 		RESULT = lp;
 	    :}
-	/* error preceded by a let*/
-	| let_part:lp COMMA error
-	    {: RESULT = lp; :}
+
+	/* error follow by a let with no expression*/
+        | error COMMA OBJECTID:id COLON TYPEID:typeid
+            {: RESULT = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), new no_expr(curr_lineno())); :}
+        /* error followed by a let with expression*/
+        | error COMMA OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
+            {: RESULT = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); :}
+        /* error preceded by a let and followed by a let with no expression*/
+        | let_part:lp COMMA error COMMA OBJECTID:id COLON TYPEID:typeid
+	    {: 	
+		let currentLet = lp;
+		while(currentLet.body instanceof let){
+		    currentLet = (let)currentLet.body;
+		}
+		currentLet.body = new let(curr_lineno(), id, typeid, new no_expr(curr_lineno()), new no_expr(curr_lineno())); ;
+		RESULT = lp;
+	    :}
+        /* error preceded by a let and followed by a let with an expression*/
+        | let_part:lp COMMA error COMMA OBJECTID:id COLON TYPEID:typeid ASSIGN expression:e
+	    {: 
+		let currentLet = lp;
+		while(currentLet.body instanceof let){
+		    currentLet = (let)currentLet.body;
+		}
+		currentLet.body = new let(curr_lineno(), id, typeid, e, new no_expr(curr_lineno())); 
+		RESULT = lp;
+	    :}
 	;
 expression
 	::=
@@ -239,9 +283,6 @@ expression
 	/* expression block */
 	LBRACE expression_list:el RBRACE
 	    {: RESULT = new block(curr_lineno(), el); :}
-	|
-	/* error in expression block*/
-	LBRACE error RBRACE
 	|
 	/* let expression */
 	LET let_part:lp IN expression:e
