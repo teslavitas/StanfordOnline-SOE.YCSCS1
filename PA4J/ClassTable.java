@@ -195,26 +195,126 @@ class ClassTable {
 		processCheckList(checkList, checkList.get(i));
 	    }
 	}
+
+	this.checkInheritedAttributes();
     }
 
     public boolean hasClass(AbstractSymbol className){
 	return this.getClass(className) != null;
     }
 
-    public boolean hasMethod(AbstractSymbol className, AbstractSymbol methodName,  List<formalc> params, AbstractSymbol result){
-	return false;
+    public boolean isSubType(AbstractSymbol target, AbstractSymbol superType){
+	if(target == superType){
+	    return true;
+	}
+
+	class_c c = this.getClass(target);
+    
+	while(target != TreeConstants.Object_){
+	    target = c.getParent();
+	    c = this.getClass(target);
+
+	    if(target == superType){
+		return true;
+	    }		
+	}
+
+	return true;
+    }
+
+    // check if a class or one of its superclasses has a method with specified parameters and return its returnType
+    // if method doesn't exist - return null
+    public AbstractSymbol getMethod(AbstractSymbol className, AbstractSymbol methodName,  List<formalc> params){
+	class_c classDesc = this.getClass(className);
+	if(classDesc == null){
+	    return null;
+	}
+	
+	method direct = getDirectMethod(classDesc, methodName, params);
+	if(direct != null){
+	    return direct.getReturnType();
+	}
+
+	while(className != TreeConstants.Object_){
+	    className = classDesc.getParent();
+	    classDesc = this.getClass(className);
+	    
+	    method inherited = getDirectMethod(classDesc, methodName, params);
+	    if(inherited != null){
+		return inherited.getReturnType();
+	    }
+	}
+	return null;
+    }
+
+    // check if a class has a method with specified parameters
+    private method getDirectMethod(class_c c, AbstractSymbol methodName, List<formalc> params){	
+	method m = this.getDirectMethod(c, methodName);
+	if(m == null){
+	    return null;
+	}
+	    
+        // check params
+	boolean paramsOk = true;
+	if(params.size() != m.getFormals().getLength()){
+	    paramsOk = false;
+	}else{
+	    for(int i = 0;i < params.size(); ++i) {
+		formalc formal = (formalc)m.getFormals().getNth(i);
+		paramsOk &= formal.getName() == params.get(i).getName();
+		paramsOk &= this.isSubType(params.get(i).getTypeName(), formal.getTypeName());
+	    }
+	}
+	    
+	if(paramsOk){
+	    return m;
+	}else{
+	    return null;
+	}
+    }
+
+    private method getDirectMethod(class_c c, AbstractSymbol methodName){
+	for(Enumeration e = c.getFeatures().getElements(); e.hasMoreElements();) {
+	    Feature f = (Feature)e.nextElement();
+	    if( f instanceof method){
+		method m = (method)f;
+		if(m.getName() == methodName){
+		    return m;
+		}
+	    }
+	}
+
+	return null;
+    }
+
+    // check if a class has an atrribute with specified parameters
+    private AbstractSymbol getAttribute(AbstractSymbol className, AbstractSymbol attrName){
+	class_c c = this.getClass(className);
+	if(c == null){
+	    return null;
+	}
+
+	for(Enumeration e = c.getFeatures().getElements(); e.hasMoreElements();) {
+	    Feature f = (Feature)e.nextElement();
+	    if( f instanceof attr){
+		attr a = (attr)f;
+		if(a.getName() == attrName){
+		    return a.getReturnType();
+		}
+	    }
+	}
+
+	return null;
     }
 
     private class_c getClass(AbstractSymbol className){
 	for(Enumeration e = this.cls.getElements(); e.hasMoreElements();) {
-	    CheckingInherit item = new CheckingInherit();
 	    class_c c = (class_c)e.nextElement();
 	    if(c.getName() == className){
 		return c;
 	    }
 	}
 	for(Enumeration e = this.basicCls.getElements(); e.hasMoreElements();) {
-	    CheckingInherit item = new CheckingInherit();
 	    class_c c = (class_c)e.nextElement();
 	    if(c.getName() == className){
 		return c;
@@ -291,6 +391,98 @@ class ClassTable {
 	    }
 	}
     }
+
+    //it is not allowed to have inherited attributes
+    private void checkInheritedAttributes(){
+	for(Enumeration eclass = this.cls.getElements(); eclass.hasMoreElements();) {
+	    class_c c = (class_c)eclass.nextElement();
+	    for(Enumeration efeature = c.getFeatures().getElements(); efeature.hasMoreElements();) {
+		Feature f = (Feature)efeature.nextElement();
+		if( f instanceof attr){
+		    attr a = (attr)f;
+		    if(this.hasInheritedAttribute(c, a.getName())){
+			semantError(c);
+			errorStream.println("Attribute " + a.getName() + " is an attribute of an inherited class");
+		    }
+		}
+	    }
+	}
+    }
+
+    private boolean hasInheritedAttribute(class_c c, AbstractSymbol attrName){
+    
+	if(c.getName() == TreeConstants.Object_){
+	    return false;
+	}
+
+	AbstractSymbol parent = c.getParent();
+	while(parent != TreeConstants.Object_){
+	    AbstractSymbol attrType = this.getAttribute(parent, attrName);
+	    if(attrType != null){
+		return true;
+	    }
+	    
+	    c = this.getClass(parent);
+	    parent = c.getParent();
+	}
+	return false;	
+    }
+
+    //redefined methods should have exactly the same signature as in superclass
+    private void checkInheritedMethods(){
+	for(Enumeration eclass = this.cls.getElements(); eclass.hasMoreElements();) {
+	    class_c c = (class_c)eclass.nextElement();
+	    for(Enumeration efeature = c.getFeatures().getElements(); efeature.hasMoreElements();) {
+		Feature f = (Feature)efeature.nextElement();
+		if( f instanceof method){
+		    method m = (method)f;
+		    this.checkForInheritedMethodDiff(c, m);
+		}
+	    }
+	}
+    }
+
+    
+    private void checkForInheritedMethodDiff(class_c c, method m){
+	if(c.getName() == TreeConstants.Object_){
+	    return;
+	}
+
+	AbstractSymbol parent = c.getParent();
+	class_c parentClass = this.getClass(parent);
+	while(parent != TreeConstants.Object_){
+	    method parentMethod = this.getDirectMethod(parentClass, m.getName());
+	    if(parentMethod != null){
+		//method is overriden, check if formal params are the same
+		if(m.getFormals().getLength() != parentMethod.getFormals().getLength()){
+		    semantError(c);
+		    errorStream.println("Incompatible number of formal paramenters in redefined method " + m.getName());
+		}
+		for(int i=0;i<m.getFormals().getLength();++i){
+		    formalc f = (formalc)m.getFormals().getNth(i);
+		    formalc originalf = (formalc)parentMethod.getFormals().getNth(i);
+
+		    //it is ok if param names are different, but they should have the same type
+		    if(f.getTypeName() != originalf.getTypeName()){
+			semantError(c);
+			errorStream.println("In redefined method " + m.getName() + "parameter type" + f.getTypeName() 
+					    + " is different from original type" + originalf.getTypeName());
+		    }
+		}
+
+		//check if return type is the same
+		if(m.getReturnType() != parentMethod.getReturnType()){
+		    semantError(c);
+		    errorStream.println("In redefined method " + m.getName() + "return type" + m.getReturnType() 
+					    + " is different from original" + parentMethod.getReturnType());
+		}
+	    }
+	    
+	    parent = parentClass.getParent();
+	    parentClass = this.getClass(parent);
+	}
+    }
+
 
     /** Prints line number and file name of the given class.
      *

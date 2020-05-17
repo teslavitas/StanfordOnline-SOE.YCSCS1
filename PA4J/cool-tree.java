@@ -317,6 +317,7 @@ class class_c extends Class_ {
     public AbstractSymbol getFilename() { return filename; }
     public AbstractSymbol getName()     { return name; }
     public AbstractSymbol getParent()   { return parent; }
+    public Features getFeatures() { return features; }
 
     public void dump_with_types(PrintStream out, int n) {
         dump_line(out, n);
@@ -381,6 +382,11 @@ class method extends Feature {
 	expr.dump_with_types(out, n + 2);
     }
 
+    public AbstractSymbol getName(){
+	return this.name;
+    }
+    public Formals getFormals() { return this.formals; }
+    public AbstractSymbol getReturnType() { return this.return_type; }
 }
 
 
@@ -422,7 +428,10 @@ class attr extends Feature {
         dump_AbstractSymbol(out, n + 2, type_decl);
 	init.dump_with_types(out, n + 2);
     }
-
+    public AbstractSymbol getName(){
+	return this.name;
+    }
+    public AbstractSymbol getReturnType() { return this.type_decl; }
 }
 
 
@@ -459,7 +468,8 @@ class formalc extends Formal {
         dump_AbstractSymbol(out, n + 2, name);
         dump_AbstractSymbol(out, n + 2, type_decl);
     }
-
+    public AbstractSymbol getName() { return this.name; }
+    public AbstractSymbol getTypeName() { return this.type_decl; }
 }
 
 
