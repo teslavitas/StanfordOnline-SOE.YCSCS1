@@ -437,8 +437,26 @@ class ClassTable {
 		if( f instanceof method){
 		    method m = (method)f;
 		    this.checkForInheritedMethodDiff(c, m);
+		    this.checkForMultipleMethodDefinition(c, m);
 		}
 	    }
+	}
+    }
+
+    private void checkForMultipleMethodDefinition(class_c c, method m){
+	int methodsFound = 0;
+	for(Enumeration efeature = c.getFeatures().getElements(); efeature.hasMoreElements();) {
+	    Feature f = (Feature)efeature.nextElement();
+	    if( f instanceof method){
+	        method m2 = (method)f;
+		if(m2.getName() == m.getName()){
+		    methodsFound++;
+		}
+	    }
+	}
+	if(methodsFound > 1){
+	    semantError(c);
+	    errorStream.println("Method " + m.getName() + " is multiply defined.");
 	}
     }
 
