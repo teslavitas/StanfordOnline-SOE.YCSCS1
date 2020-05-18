@@ -197,6 +197,8 @@ class ClassTable {
 	}
 
 	this.checkInheritedAttributes();
+	this.checkInheritedMethods();
+	this.checkEntryPoint();
     }
 
     public boolean hasClass(AbstractSymbol className){
@@ -404,6 +406,11 @@ class ClassTable {
 			semantError(c);
 			errorStream.println("Attribute " + a.getName() + " is an attribute of an inherited class");
 		    }
+		    // also check for 'self' name
+		    if(a.getName() == TreeConstants.self){
+			semantError(c);
+			errorStream.println("'self' cannot be the name of an attribute");
+		    }
 		}
 	    }
 	}
@@ -483,21 +490,45 @@ class ClassTable {
 		    //it is ok if param names are different, but they should have the same type
 		    if(f.getTypeName() != originalf.getTypeName()){
 			semantError(c);
-			errorStream.println("In redefined method " + m.getName() + "parameter type" + f.getTypeName() 
-					    + " is different from original type" + originalf.getTypeName());
+			errorStream.println("In redefined method " + m.getName() + "parameter type " + f.getTypeName() 
+					    + " is different from original type " + originalf.getTypeName());
 		    }
 		}
 
 		//check if return type is the same
 		if(m.getReturnType() != parentMethod.getReturnType()){
 		    semantError(c);
-		    errorStream.println("In redefined method " + m.getName() + "return type" + m.getReturnType() 
-					    + " is different from original" + parentMethod.getReturnType());
+		    errorStream.println("In redefined method " + m.getName() + "return type " + m.getReturnType() 
+					    + " is different from original " + parentMethod.getReturnType());
 		}
 	    }
 	    
 	    parent = parentClass.getParent();
 	    parentClass = this.getClass(parent);
+	}
+    }
+
+    private void checkEntryPoint(){
+	class_c mainClass = this.getClass(TreeConstants.Main);
+	if(mainClass == null){
+	    errorStream.println("Class Main is not defined");
+	    return;
+	}
+	
+	method mainMethod = null;
+	for(Enumeration efeature = mainClass.getFeatures().getElements(); efeature.hasMoreElements();) {
+	    Feature f = (Feature)efeature.nextElement();
+	    if( f instanceof method){
+		method m = (method)f;
+		if(m.getName() == TreeConstants.main_meth){
+		    mainMethod = m;
+		}
+	    }
+	}
+
+	if(mainMethod == null){
+	    semantError(mainClass);
+	    errorStream.println("No 'main' method in class Main");
 	}
     }
 
