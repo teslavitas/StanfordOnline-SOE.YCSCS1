@@ -226,7 +226,7 @@ class ClassTable {
 
     // check if a class or one of its superclasses has a method with specified parameters and return its returnType
     // if method doesn't exist - return null
-    public AbstractSymbol getMethod(AbstractSymbol className, AbstractSymbol methodName,  List<formalc> params){
+/*    public AbstractSymbol getMethod(AbstractSymbol className, AbstractSymbol methodName,  List<formalc> params){
 	class_c classDesc = this.getClass(className);
 	if(classDesc == null){
 	    return null;
@@ -245,6 +245,42 @@ class ClassTable {
 	    if(inherited != null){
 		return inherited.getReturnType();
 	    }
+	}
+	return null;
+    }*/
+
+    // check if a class or one of its superclasses has a method with specified name
+    // returns List of parameter types and a return type. If not found - returns null
+    public List<AbstractSymbol> getMethod(AbstractSymbol className, AbstractSymbol methodName){
+	class_c classDesc = this.getClass(className);
+	if(classDesc == null){
+	    return null;
+	}
+	
+	method m = this.getDirectMethod(classDesc, methodName);
+
+
+	if(m == null){
+	    while(className != TreeConstants.Object_){
+		className = classDesc.getParent();
+		classDesc = this.getClass(className);
+	    
+		m = getDirectMethod(classDesc, methodName);
+		if(m != null){
+		    break;
+		}
+	    }
+	}
+
+	if(m != null){
+	    List<AbstractSymbol> result = new ArrayList<AbstractSymbol>();
+	    Formals formals = m.getFormals();
+	    for(int i = 0;i < formals.getLength(); ++i) {
+		formalc formal = (formalc)formals.getNth(i);
+		result.add(formal.getTypeName());
+	    }
+	    result.add(m.getReturnType());
+	    return result;
 	}
 	return null;
     }
