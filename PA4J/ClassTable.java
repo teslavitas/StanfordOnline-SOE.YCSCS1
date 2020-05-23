@@ -326,7 +326,7 @@ class ClassTable {
     }
 
     // check if a class has an atrribute with specified parameters
-    private AbstractSymbol getAttribute(AbstractSymbol className, AbstractSymbol attrName){
+    public AbstractSymbol getAttribute(AbstractSymbol className, AbstractSymbol attrName){
 	class_c c = this.getClass(className);
 	if(c == null){
 	    return null;
@@ -345,7 +345,7 @@ class ClassTable {
 	return null;
     }
 
-    private class_c getClass(AbstractSymbol className){
+    public class_c getClass(AbstractSymbol className){
 	for(Enumeration e = this.cls.getElements(); e.hasMoreElements();) {
 	    class_c c = (class_c)e.nextElement();
 	    if(c.getName() == className){

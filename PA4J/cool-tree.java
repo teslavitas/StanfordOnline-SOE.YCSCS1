@@ -148,7 +148,7 @@ abstract class Expression extends TreeNode {
         else
             { out.println(Utilities.pad(n) + ": _no_type"); }
     }
-
+    public abstract void semant();
 }
 
 
@@ -273,7 +273,17 @@ class programc extends Program {
 	    System.err.println("Compilation halted due to static semantic errors.");
 	    System.exit(1);
 	}
-	System.exit(1);//TODO: remove this
+
+	SemantScope.init(classTable);
+	for(Enumeration e = classes.getElements();e.hasMoreElements();){
+	    class_c c = (class_c)e.nextElement();
+	    c.semant();
+	}
+
+	if(SemantScope.hasErrors()){
+	    System.exit(1);
+	}
+	//System.exit(1);//TODO: remove this
     }
 
 }
@@ -333,6 +343,19 @@ class class_c extends Class_ {
         out.println(Utilities.pad(n + 2) + ")");
     }
 
+    public void semant() {
+	SemantScope.enterClass(this.name);
+
+	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
+	    Feature f = (Feature)e.nextElement();
+	    if(f instanceof method){
+		method m = (method)f;
+		m.semant();
+	    }
+	}
+	
+	SemantScope.exitClass();
+    }
 }
 
 
@@ -387,6 +410,10 @@ class method extends Feature {
     }
     public Formals getFormals() { return this.formals; }
     public AbstractSymbol getReturnType() { return this.return_type; }
+
+    public void semant() {
+	this.expr.semant();
+    }
 }
 
 
@@ -549,7 +576,10 @@ class assign extends Expression {
 	expr.dump_with_types(out, n + 2);
 	dump_type(out, n);
     }
-
+    
+    public void semant(){
+	
+    }
 }
 
 
@@ -602,6 +632,10 @@ class static_dispatch extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
+
 }
 
 
@@ -649,6 +683,9 @@ class dispatch extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -692,6 +729,9 @@ class cond extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -730,6 +770,9 @@ class loop extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -770,6 +813,9 @@ class typcase extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -805,6 +851,9 @@ class block extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -853,6 +902,9 @@ class let extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -891,6 +943,9 @@ class plus extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -929,6 +984,9 @@ class sub extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -967,6 +1025,9 @@ class mul extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -1005,6 +1066,9 @@ class divide extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -1038,6 +1102,9 @@ class neg extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -1076,6 +1143,9 @@ class lt extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -1114,6 +1184,9 @@ class eq extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	
+    }
 }
 
 
@@ -1152,6 +1225,27 @@ class leq extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.e1.semant();
+	this.e2.semant();
+
+	boolean isOk = true;
+	//TODO: check to subtypes of int
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    isOk = false;
+	    SemantScope.trackError(this, "first operand of <= should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    isOk = false;
+	    SemantScope.trackError(this, "second operand of <= should be Int, but is " + this.e2.get_type());
+	}
+
+	if(isOk){
+	    this.set_type(TreeConstants.Bool);
+	}
+    }
 }
 
 
@@ -1185,6 +1279,9 @@ class comp extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	//TODO
+    }
 }
 
 
@@ -1218,6 +1315,9 @@ class int_const extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.Int);
+    }
 }
 
 
@@ -1251,6 +1351,9 @@ class bool_const extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.Bool);
+    }
 }
 
 
@@ -1286,6 +1389,9 @@ class string_const extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.Str);
+    }
 }
 
 
@@ -1319,6 +1425,9 @@ class new_ extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(this.type_name);
+    }
 }
 
 
@@ -1352,6 +1461,9 @@ class isvoid extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.Bool);	
+    }
 }
 
 
@@ -1380,6 +1492,9 @@ class no_expr extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.No_type);	
+    }
 }
 
 
@@ -1413,6 +1528,70 @@ class object extends Expression {
 	dump_type(out, n);
     }
 
+    public void semant(){
+	this.set_type(TreeConstants.Object_);
+    }
 }
 
+class SemantScope {
+    private static SymbolTable classes;
+    private static SymbolTable objects;
+    private static ClassTable classTable;
+    //reference to current class
+    private static AbstractSymbol currClass;
+    private static int errorCount;
 
+    public static void init(ClassTable classTable){
+	SemantScope.classTable = classTable;
+	SemantScope.classes = new SymbolTable();
+	SemantScope.objects = new SymbolTable();
+	currClass = AbstractTable.stringtable.addString("CurrClass12345678");
+	errorCount = 0;
+    }
+
+    public static void enterClass(AbstractSymbol className){
+	SemantScope.classes.enterScope();
+	classes.addId(currClass, className);
+    }
+
+    public static void exitClass()
+    {
+	classes.exitScope();
+    }
+
+    public static AbstractSymbol lookupVariable(AbstractSymbol name){
+	Object fromObjectScope = objects.lookup(name);
+	if(fromObjectScope != null){
+	    return (AbstractSymbol)fromObjectScope;
+	}
+
+	AbstractSymbol className = (AbstractSymbol)classes.lookup(currClass);
+	AbstractSymbol fromMethod = classTable.getAttribute(className, name);
+
+	return fromMethod;
+    }
+
+    public static void enterScope(){
+	objects.enterScope();
+    }
+
+    public static void existScope(){
+	objects.exitScope();
+    }
+
+    public static boolean probe(AbstractSymbol name){
+	return objects.probe(name) != null;
+    }
+
+    public static void trackError(TreeNode node, String error){
+	errorCount++;
+	AbstractSymbol className = (AbstractSymbol)classes.lookup(currClass);
+	class_c classObject = classTable.getClass(className);
+	classTable.semantError(classObject.getFilename(), node);
+	System.err.println(error);	
+    }
+
+    public static boolean hasErrors(){
+	return errorCount > 0;
+    }
+}
