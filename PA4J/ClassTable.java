@@ -424,6 +424,14 @@ class ClassTable {
 		    hasDuplicate = true;
 		}
 	    }
+	    // cannot inherit from Int, Bool, String and SELF_TYPE
+	    boolean hasCorrectParent = item.parent != TreeConstants.Int && item.parent != TreeConstants.Bool
+		&& item.parent != TreeConstants.Str && item.parent != TreeConstants.SELF_TYPE;
+	    if(!hasCorrectParent){
+		    semantError(c);
+		    errorStream.println("Class " + item.name + " cannot inherit class" + item.parent);    
+	    }	    
+
 	    if(!hasDuplicate){
 	        checkList.add(item);
 	    }
