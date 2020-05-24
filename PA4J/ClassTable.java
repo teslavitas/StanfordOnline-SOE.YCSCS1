@@ -205,9 +205,21 @@ class ClassTable {
 	return this.getClass(className) != null;
     }
 
-    public boolean isSubType(AbstractSymbol target, AbstractSymbol superType){
+    public boolean isSubType(AbstractSymbol target, AbstractSymbol superType, AbstractSymbol currentType){
 	if(target == superType){
 	    return true;
+	}
+
+	if(superType == TreeConstants.SELF_TYPE){
+	    // case with SELF_TYPE <= SELF_TYPE was covered in a previous if
+	    return false;
+	}
+
+	if(target == TreeConstants.SELF_TYPE){
+	    target = currentType;
+	    if(target == superType){
+		return true;
+    	    }
 	}
 
 	class_c c = this.getClass(target);
@@ -221,7 +233,7 @@ class ClassTable {
 	    }		
 	}
 
-	return true;
+	return false;
     }
 
     // check if a class or one of its superclasses has a method with specified parameters and return its returnType
@@ -286,7 +298,7 @@ class ClassTable {
     }
 
     // check if a class has a method with specified parameters
-    private method getDirectMethod(class_c c, AbstractSymbol methodName, List<formalc> params){	
+/*    private method getDirectMethod(class_c c, AbstractSymbol methodName, List<formalc> params){	
 	method m = this.getDirectMethod(c, methodName);
 	if(m == null){
 	    return null;
@@ -309,7 +321,7 @@ class ClassTable {
 	}else{
 	    return null;
 	}
-    }
+    }*/
 
     private method getDirectMethod(class_c c, AbstractSymbol methodName){
 	for(Enumeration e = c.getFeatures().getElements(); e.hasMoreElements();) {
@@ -431,6 +443,11 @@ class ClassTable {
 		    semantError(c);
 		    errorStream.println("Class " + item.name + " cannot inherit class" + item.parent);    
 	    }	    
+
+	    if(item.name == TreeConstants.SELF_TYPE){
+		semantError(c);
+		errorStream.println("Redefinition of basic class SELF_TYPE");    
+	    }
 
 	    if(!hasDuplicate){
 	        checkList.add(item);

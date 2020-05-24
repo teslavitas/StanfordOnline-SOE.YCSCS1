@@ -412,7 +412,28 @@ class method extends Feature {
     public AbstractSymbol getReturnType() { return this.return_type; }
 
     public void semant() {
+	SemantScope.enterScope();
+	for(int i = 0; i<this.formals.getLength(); ++i){
+	    formalc formal = (formalc)this.formals.getNth(i);
+	    if(SemantScope.probe(formal.getName())){
+		SemantScope.trackError(this, "Duplicated argument " + formal.getName() + " in method " + this.name);
+	    }
+	    if(formal.getTypeName() == TreeConstants.SELF_TYPE){
+		SemantScope.trackError(this, "argument "+ formal.getName() + " of method " + this.name 
+		    + "has type SELF_TYPE, which is not allowed");
+	    }
+	    if(formal.getName() == TreeConstants.self){
+		SemantScope.trackError(this, "Method " + this.name + " has an arument self, this name is not allowed");
+	    }
+	    SemantScope.addVariable(formal.getName(), formal.getTypeName());
+	}
+
 	this.expr.semant();
+	if(!SemantScope.classTable.isSubType(this.expr.get_type(), this.return_type, SemantScope.getCurrClass())){
+	    SemantScope.trackError(this, "Method " + this.name + " returns " + this.expr.get_type() 
+		+ " but should return " + this.return_type + " or its subtype");
+	}
+	SemantScope.exitScope();
     }
 }
 
@@ -903,7 +924,27 @@ class let extends Expression {
     }
 
     public void semant(){
+	this.init.semant();
+	boolean isOk = true;
+
+	if(this.init.get_type() != TreeConstants.No_type){// if there is no init value, its type will be No_type
+	    if(!SemantScope.classTable.isSubType(this.init.get_type(), this.type_decl, SemantScope.getCurrClass())){
+		SemantScope.trackError(this, "init expression of let has type " + this.init.get_type() +
+		    " but should be " + this.type_decl + " or its subtype");
+		isOk = false;
+    	    }
+	}
 	
+	SemantScope.enterScope();
+	SemantScope.addVariable(this.identifier, this.type_decl);
+	this.body.semant();
+	SemantScope.exitScope();
+	
+	if(isOk){
+	    this.set_type(this.body.get_type());
+	}else{
+	    this.set_type(TreeConstants.Object_);
+	}
     }
 }
 
@@ -944,7 +985,18 @@ class plus extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	this.e2.semant();
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "first operand of + should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "second of + should be Int, but is " + this.e1.get_type());
+	}
+
+        this.set_type(TreeConstants.Int);
     }
 }
 
@@ -985,7 +1037,18 @@ class sub extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	this.e2.semant();
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "first operand of - should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "second of - should be Int, but is " + this.e1.get_type());
+	}
+
+        this.set_type(TreeConstants.Int);
     }
 }
 
@@ -1026,12 +1089,23 @@ class mul extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	this.e2.semant();
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "first operand of * should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "second of * should be Int, but is " + this.e1.get_type());
+	}
+
+        this.set_type(TreeConstants.Int);
     }
 }
 
 
-/** Defines AST constructor 'divide'.
+/** Defines AST constructor 'divide'. /
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class divide extends Expression {
@@ -1067,12 +1141,23 @@ class divide extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	this.e2.semant();
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "first operand of / should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "second of / should be Int, but is " + this.e1.get_type());
+	}
+
+        this.set_type(TreeConstants.Int);
     }
 }
 
 
-/** Defines AST constructor 'neg'.
+/** Defines AST constructor 'neg'. (-Int operator)
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class neg extends Expression {
@@ -1103,12 +1188,18 @@ class neg extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    SemantScope.trackError(this, "operand of - should be Int, but is " + this.e1.get_type());
+	}
+
+        this.set_type(TreeConstants.Bool);
     }
 }
 
 
-/** Defines AST constructor 'lt'.
+/** Defines AST constructor 'lt'. <
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class lt extends Expression {
@@ -1144,12 +1235,30 @@ class lt extends Expression {
     }
 
     public void semant(){
-	
+	this.e1.semant();
+	this.e2.semant();
+
+	boolean isOk = true;
+	// we don't need to check subtypes of Int because it is not allowed to inherit from Int
+	if(this.e1.get_type() != TreeConstants.Int){
+	    
+	    isOk = false;
+	    SemantScope.trackError(this, "first operand of < should be Int, but is " + this.e1.get_type());
+	}
+	if(this.e2.get_type() != TreeConstants.Int){
+	    
+	    isOk = false;
+	    SemantScope.trackError(this, "second operand of < should be Int, but is " + this.e2.get_type());
+	}
+
+	//if(isOk){
+	    this.set_type(TreeConstants.Bool);
+	//}
     }
 }
 
 
-/** Defines AST constructor 'eq'.
+/** Defines AST constructor 'eq'. =
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class eq extends Expression {
@@ -1185,12 +1294,29 @@ class eq extends Expression {
     }
 
     public void semant(){
+	this.e1.semant();
+	this.e2.semant();
 	
+	if(this.e1.get_type() == TreeConstants.Int || this.e2.get_type() != TreeConstants.Int){
+    	    SemantScope.trackError(this, "first operand of = is Int, but second is " + this.e2.get_type());
+	} else if(this.e2.get_type() == TreeConstants.Int || this.e1.get_type() != TreeConstants.Int){
+    	    SemantScope.trackError(this, "second operand of = is Int, but first is " + this.e2.get_type());
+	} else if(this.e1.get_type() == TreeConstants.Bool || this.e2.get_type() != TreeConstants.Bool){
+    	    SemantScope.trackError(this, "first operand of = is Bool, but second is " + this.e2.get_type());
+	} else if(this.e2.get_type() == TreeConstants.Bool || this.e1.get_type() != TreeConstants.Bool){
+    	    SemantScope.trackError(this, "second operand of = is Bool, but first is " + this.e2.get_type());
+	} else if(this.e1.get_type() == TreeConstants.Str || this.e2.get_type() != TreeConstants.Str){
+    	    SemantScope.trackError(this, "first operand of = is String, but second is " + this.e2.get_type());
+	} else if(this.e2.get_type() == TreeConstants.Str || this.e1.get_type() != TreeConstants.Str){
+    	    SemantScope.trackError(this, "second operand of = is String, but first is " + this.e2.get_type());
+	}
+
+	this.set_type(TreeConstants.Bool);
     }
 }
 
 
-/** Defines AST constructor 'leq'.
+/** Defines AST constructor 'leq'. <=
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class leq extends Expression {
@@ -1230,7 +1356,7 @@ class leq extends Expression {
 	this.e2.semant();
 
 	boolean isOk = true;
-	//TODO: check to subtypes of int
+	// we don't need to check subtypes of Int because it is not allowed to inherit from Int
 	if(this.e1.get_type() != TreeConstants.Int){
 	    
 	    isOk = false;
@@ -1242,14 +1368,14 @@ class leq extends Expression {
 	    SemantScope.trackError(this, "second operand of <= should be Int, but is " + this.e2.get_type());
 	}
 
-	if(isOk){
+	//if(isOk){
 	    this.set_type(TreeConstants.Bool);
-	}
+	//}
     }
 }
 
 
-/** Defines AST constructor 'comp'.
+/** Defines AST constructor 'comp' (NOT in cool)
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class comp extends Expression {
@@ -1280,7 +1406,19 @@ class comp extends Expression {
     }
 
     public void semant(){
-	//TODO
+	this.e1.semant();
+
+	boolean isOk = true;
+	// we don't need to check subtypes of Bool because it is not allowed to inherit from Bool
+	if(this.e1.get_type() != TreeConstants.Bool){
+	    
+	    isOk = false;
+	    SemantScope.trackError(this, "Operand of NOT should be Bool, but is " + this.e1.get_type());
+	}
+
+	//if(isOk){
+	    this.set_type(TreeConstants.Bool);
+	//}
     }
 }
 
@@ -1426,6 +1564,7 @@ class new_ extends Expression {
     }
 
     public void semant(){
+	// this should work for both SELF_TYPE and regular types
 	this.set_type(this.type_name);
     }
 }
@@ -1462,6 +1601,7 @@ class isvoid extends Expression {
     }
 
     public void semant(){
+	e1.semant();
 	this.set_type(TreeConstants.Bool);	
     }
 }
@@ -1529,14 +1669,24 @@ class object extends Expression {
     }
 
     public void semant(){
-	this.set_type(TreeConstants.Object_);
+	if(this.name == TreeConstants.self){
+	    this.set_type(TreeConstants.SELF_TYPE);
+	}else{
+	    AbstractSymbol type = SemantScope.lookupVariable(this.name);
+	    if(type == null){
+		SemantScope.trackError(this, this.name + " not found");
+		this.set_type(TreeConstants.Object_);
+	    }else{
+		this.set_type(type);
+	    }
+	}
     }
 }
 
 class SemantScope {
     private static SymbolTable classes;
     private static SymbolTable objects;
-    private static ClassTable classTable;
+    public static ClassTable classTable;
     //reference to current class
     private static AbstractSymbol currClass;
     private static int errorCount;
@@ -1575,12 +1725,20 @@ class SemantScope {
 	objects.enterScope();
     }
 
-    public static void existScope(){
+    public static void exitScope(){
 	objects.exitScope();
+    }
+
+    public static void addVariable(AbstractSymbol name, AbstractSymbol type){
+	objects.addId(name, type);
     }
 
     public static boolean probe(AbstractSymbol name){
 	return objects.probe(name) != null;
+    }
+
+    public static AbstractSymbol getCurrClass(){
+	return (AbstractSymbol)classes.lookup(currClass);
     }
 
     public static void trackError(TreeNode node, String error){
