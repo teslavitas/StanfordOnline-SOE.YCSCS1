@@ -8,8 +8,7 @@
 
 import java.util.Enumeration;
 import java.io.PrintStream;
-import java.util.Vector;
-
+import java.util.*;
 
 /** Defines simple phylum Program */
 abstract class Program extends TreeNode {
@@ -526,7 +525,7 @@ class formalc extends Formal {
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class branch extends Case {
     protected AbstractSymbol name;
-    protected AbstractSymbol type_decl;
+    public AbstractSymbol type_decl;
     protected Expression expr;
     /** Creates "branch" AST node. 
       *
@@ -560,6 +559,15 @@ class branch extends Case {
 	expr.dump_with_types(out, n + 2);
     }
 
+    public void semant(){
+	SemantScope.enterScope();
+	SemantScope.addVariable(this.name, this.type_decl);
+	this.expr.semant();
+	SemantScope.exitScope();
+    }
+    public AbstractSymbol get_type(){
+	return this.expr.get_type();
+    }
 }
 
 
@@ -835,7 +843,28 @@ class typcase extends Expression {
     }
 
     public void semant(){
-	
+	this.expr.semant();
+
+	List<AbstractSymbol> types = new ArrayList<AbstractSymbol>();
+	AbstractSymbol resultType = null;
+
+	for(int i = 0; i<this.cases.getLength(); ++i){
+	    branch b = (branch)this.cases.getNth(i);	    
+	    b.semant();
+	    if(types.contains(b.type_decl)){
+		SemantScope.trackError(this, "multiple branches with variable type " + b.type_decl + " in CASE expression");
+	    } else if(b.type_decl == TreeConstants.SELF_TYPE){
+		SemantScope.trackError(this, "variables with type SELF_TYPE are not allowed  in CASE expression");
+	    }
+	    types.add(b.type_decl);
+	    if(resultType == null){
+		resultType = b.get_type();
+	    }else{
+		resultType = SemantScope.classTable.getCommonType(resultType, b.get_type(), SemantScope.getCurrClass());
+	    }
+	}
+
+	this.set_type(resultType);
     }
 }
 
@@ -873,7 +902,13 @@ class block extends Expression {
     }
 
     public void semant(){
-	
+	AbstractSymbol lastType = null;
+	for(int i = 0; i<this.body.getLength(); ++i){
+	    Expression e = (Expression)this.body.getNth(i);
+	    e.semant();
+	    lastType = e.get_type();
+	}
+	this.set_type(lastType);
     }
 }
 
@@ -940,11 +975,11 @@ class let extends Expression {
 	this.body.semant();
 	SemantScope.exitScope();
 	
-	if(isOk){
+	//if(isOk){
 	    this.set_type(this.body.get_type());
-	}else{
-	    this.set_type(TreeConstants.Object_);
-	}
+	//}else{
+	//    this.set_type(TreeConstants.Object_);
+	//}
     }
 }
 

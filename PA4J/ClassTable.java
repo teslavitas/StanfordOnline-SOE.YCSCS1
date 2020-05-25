@@ -236,6 +236,47 @@ class ClassTable {
 	return false;
     }
 
+    public AbstractSymbol getCommonType(AbstractSymbol t1, AbstractSymbol t2, AbstractSymbol currentType){
+	if(t1 == TreeConstants.SELF_TYPE && t2 == TreeConstants.SELF_TYPE){
+	    return t1;
+	}
+	
+	if(t1 == TreeConstants.SELF_TYPE){
+	    t1 = currentType;
+	}
+
+	if(t2 == TreeConstants.SELF_TYPE){
+	    t2 = currentType;
+	}
+
+	//find all ancestors of t1
+	List<AbstractSymbol> t1Ancestors = new ArrayList<AbstractSymbol>();
+	t1Ancestors.add(t1);
+	class_c t1Class = this.getClass(t1);
+	while(t1 != TreeConstants.Object_){
+	    t1 = t1Class.getParent();
+	    t1Class = this.getClass(t1);
+	    t1Ancestors.add(t1);	
+	}
+
+	class_c t2Class = this.getClass(t2);
+	while(true){
+	    //compare t2 with all classes from the list until match is found
+	    for(int i = 0;i<t1Ancestors.size();++i){
+		if(t2 == t1Ancestors.get(i)){
+		    return t2;
+		}
+	    }
+	    if(t2 == TreeConstants.Object_){
+		//we should never get here
+		throw new IllegalArgumentException("error while calculating common class of " + t1 + " and " + t2 
+			    + " in scope of " + currentType);
+	    }
+	    t2 = t2Class.getParent();
+	    t2Class = this.getClass(t2);
+	}
+    }
+
     // check if a class or one of its superclasses has a method with specified parameters and return its returnType
     // if method doesn't exist - return null
 /*    public AbstractSymbol getMethod(AbstractSymbol className, AbstractSymbol methodName,  List<formalc> params){
