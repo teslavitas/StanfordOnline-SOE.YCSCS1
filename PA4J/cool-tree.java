@@ -713,7 +713,45 @@ class dispatch extends Expression {
     }
 
     public void semant(){
-	
+	expr.semant();
+	AbstractSymbol caller = expr.get_type();
+	if(caller == TreeConstants.SELF_TYPE){
+	    caller = SemantScope.getCurrClass();
+	}
+
+	List<AbstractSymbol> formalTypes = SemantScope.classTable.getMethod(caller, this.name);
+	if(formalTypes == null){
+	    SemantScope.trackError(this, "Cannot find method " + this.name + " in class " + caller);
+	    this.set_type(TreeConstants.Object_);
+	    return;
+	}
+
+	boolean paramsCountOk = true;
+
+	//last item in formal list is method's return type, so it should be 1 element longer than list of actuals
+	if(this.actual.getLength() != formalTypes.size() - 1){
+	    SemantScope.trackError(this, "expect to have " + (formalTypes.size() - 1) + " parameters in method "
+		+ this.name + ", but has " + this.actual.getLength());
+	    paramsCountOk = false;
+	}
+
+	if(paramsCountOk){
+	for(int i = 0; i<this.actual.getLength(); ++i){
+	    Expression e = (Expression)this.actual.getNth(i);
+	    e.semant();
+	    AbstractSymbol formalType = formalTypes.get(i);
+	    if(!SemantScope.classTable.isSubType(e.get_type(), formalType, SemantScope.getCurrClass())){
+		SemantScope.trackError(this, "argument number " + i + " of method " + this.name + " has type " 
+		    + e.get_type() + ", but should be " + formalType + " or its subtype");
+	    }
+	}
+	}
+
+	AbstractSymbol resultType = formalTypes.get(formalTypes.size()-1);
+	if(resultType == TreeConstants.SELF_TYPE){
+	    resultType = caller;
+	}
+	this.set_type(resultType);
     }
 }
 
@@ -759,7 +797,17 @@ class cond extends Expression {
     }
 
     public void semant(){
-	
+	this.pred.semant();
+	this.then_exp.semant();
+	this.else_exp.semant();
+
+	if(pred.get_type() != TreeConstants.Bool){
+	    SemantScope.trackError(this, "If condition has type " + this.pred.get_type() +", but should be bool");
+	}
+
+	AbstractSymbol resultType = SemantScope.classTable.getCommonType(
+	    this.then_exp.get_type(),this.else_exp.get_type(), SemantScope.getCurrClass());
+	this.set_type(resultType);
     }
 }
 
@@ -800,7 +848,12 @@ class loop extends Expression {
     }
 
     public void semant(){
-	
+	this.pred.semant();
+	if(this.pred.get_type() != TreeConstants.Bool){
+	    SemantScope.trackError(this, "loop condition has type " + this.pred.get_type() +", but should be bool");
+	}
+	this.body.semant();
+	this.set_type(TreeConstants.Object_);
     }
 }
 
@@ -1600,7 +1653,12 @@ class new_ extends Expression {
 
     public void semant(){
 	// this should work for both SELF_TYPE and regular types
-	this.set_type(this.type_name);
+	if(!SemantScope.classTable.hasClass(this.type_name) && this.type_name != TreeConstants.SELF_TYPE){
+	    SemantScope.trackError(this, "Call to NEW with non-existing class " + this.type_name);
+	    this.set_type(TreeConstants.Object_);
+	}else{
+	    this.set_type(this.type_name);
+	}
     }
 }
 
