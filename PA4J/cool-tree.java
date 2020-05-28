@@ -802,7 +802,7 @@ class dispatch extends Expression {
 
 	AbstractSymbol resultType = formalTypes.get(formalTypes.size()-1);
 	if(resultType == TreeConstants.SELF_TYPE){
-	    resultType = caller;
+	    resultType = expr.get_type();
 	}
 	this.set_type(resultType);
     }
