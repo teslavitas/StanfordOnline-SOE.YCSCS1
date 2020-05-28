@@ -607,7 +607,16 @@ class assign extends Expression {
     }
     
     public void semant(){
-	
+	this.expr.semant();
+	AbstractSymbol variable = SemantScope.lookupVariable(this.name);
+	if(variable == null){
+	    SemantScope.trackError(this, "Assignment to not declared variable " + this.name);
+	} else if(!SemantScope.classTable.isSubType(this.expr.get_type(), variable, SemantScope.getCurrClass())){
+	    SemantScope.trackError(this, "Variable " + this.name + " has type " + variable 
+		+ " but is assigned with value of " + this.expr.get_type());
+	}
+
+	this.set_type(this.expr.get_type());
     }
 }
 
@@ -662,7 +671,51 @@ class static_dispatch extends Expression {
     }
 
     public void semant(){
-	
+	if(this.type_name == TreeConstants.SELF_TYPE){
+	    SemantScope.trackError(this, "Static dispatch to SELF_TYPE");
+	    this.set_type(TreeConstants.Object_);
+	    return;
+	}
+
+	expr.semant();
+	if(!SemantScope.classTable.isSubType(this.expr.get_type(), this.type_name, SemantScope.getCurrClass())){
+	    SemantScope.trackError(this, "Type of static dispatch caller " + this.expr.get_type() + " is not a subtype of "
+		+this.type_name);
+	}
+
+	List<AbstractSymbol> formalTypes = SemantScope.classTable.getMethod(this.type_name, this.name);
+	if(formalTypes == null){
+	    SemantScope.trackError(this, "Cannot find method " + this.name + " in class " + this.type_name);
+	    this.set_type(TreeConstants.Object_);
+	    return;
+	}
+
+	boolean paramsCountOk = true;
+
+	//last item in formal list is method's return type, so it should be 1 element longer than list of actuals
+	if(this.actual.getLength() != formalTypes.size() - 1){
+	    SemantScope.trackError(this, "expect to have " + (formalTypes.size() - 1) + " parameters in method "
+		+ this.name + ", but has " + this.actual.getLength());
+	    paramsCountOk = false;
+	}
+
+	if(paramsCountOk){
+	for(int i = 0; i<this.actual.getLength(); ++i){
+	    Expression e = (Expression)this.actual.getNth(i);
+	    e.semant();
+	    AbstractSymbol formalType = formalTypes.get(i);
+	    if(!SemantScope.classTable.isSubType(e.get_type(), formalType, SemantScope.getCurrClass())){
+		SemantScope.trackError(this, "argument number " + i + " of method " + this.name + " has type " 
+		    + e.get_type() + ", but should be " + formalType + " or its subtype");
+	    }
+	}
+	}
+
+	AbstractSymbol resultType = formalTypes.get(formalTypes.size()-1);
+	if(resultType == TreeConstants.SELF_TYPE){
+	    resultType = this.expr.get_type();
+	}
+	this.set_type(resultType);
     }
 
 }
