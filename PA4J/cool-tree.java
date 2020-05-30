@@ -351,6 +351,10 @@ class class_c extends Class_ {
 		method m = (method)f;
 		m.semant();
 	    }
+	    if(f instanceof attr){
+		attr a = (attr)f;
+		a.semant();
+	    }
 	}
 	
 	SemantScope.exitClass();
@@ -479,6 +483,14 @@ class attr extends Feature {
 	return this.name;
     }
     public AbstractSymbol getReturnType() { return this.type_decl; }
+
+    public void semant() {
+	init.semant();
+	if(!SemantScope.classTable.isSubType(this.init.get_type(), this.type_decl, SemantScope.getCurrClass())){
+	    SemantScope.trackError(this, "Initialization expression for attribute" + this.name + " has type " 
+		+ this.type_decl +  " but is assigned with value of " + this.init.get_type());
+	}
+    }
 }
 
 
@@ -1438,17 +1450,17 @@ class eq extends Expression {
 	this.e1.semant();
 	this.e2.semant();
 	
-	if(this.e1.get_type() == TreeConstants.Int || this.e2.get_type() != TreeConstants.Int){
+	if(this.e1.get_type() == TreeConstants.Int && this.e2.get_type() != TreeConstants.Int){
     	    SemantScope.trackError(this, "first operand of = is Int, but second is " + this.e2.get_type());
-	} else if(this.e2.get_type() == TreeConstants.Int || this.e1.get_type() != TreeConstants.Int){
+	} else if(this.e2.get_type() == TreeConstants.Int && this.e1.get_type() != TreeConstants.Int){
     	    SemantScope.trackError(this, "second operand of = is Int, but first is " + this.e2.get_type());
-	} else if(this.e1.get_type() == TreeConstants.Bool || this.e2.get_type() != TreeConstants.Bool){
+	} else if(this.e1.get_type() == TreeConstants.Bool && this.e2.get_type() != TreeConstants.Bool){
     	    SemantScope.trackError(this, "first operand of = is Bool, but second is " + this.e2.get_type());
-	} else if(this.e2.get_type() == TreeConstants.Bool || this.e1.get_type() != TreeConstants.Bool){
+	} else if(this.e2.get_type() == TreeConstants.Bool && this.e1.get_type() != TreeConstants.Bool){
     	    SemantScope.trackError(this, "second operand of = is Bool, but first is " + this.e2.get_type());
-	} else if(this.e1.get_type() == TreeConstants.Str || this.e2.get_type() != TreeConstants.Str){
+	} else if(this.e1.get_type() == TreeConstants.Str && this.e2.get_type() != TreeConstants.Str){
     	    SemantScope.trackError(this, "first operand of = is String, but second is " + this.e2.get_type());
-	} else if(this.e2.get_type() == TreeConstants.Str || this.e1.get_type() != TreeConstants.Str){
+	} else if(this.e2.get_type() == TreeConstants.Str && this.e1.get_type() != TreeConstants.Str){
     	    SemantScope.trackError(this, "second operand of = is String, but first is " + this.e2.get_type());
 	}
 

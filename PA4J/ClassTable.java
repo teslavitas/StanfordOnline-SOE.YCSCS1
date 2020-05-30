@@ -206,6 +206,10 @@ class ClassTable {
     }
 
     public boolean isSubType(AbstractSymbol target, AbstractSymbol superType, AbstractSymbol currentType){
+	if(target == TreeConstants.No_type){
+	    return true;
+	}
+
 	if(target == superType){
 	    return true;
 	}
