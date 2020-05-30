@@ -1089,11 +1089,15 @@ class let extends Expression {
     	    }
 	}
 	
-	SemantScope.enterScope();
-	SemantScope.addVariable(this.identifier, this.type_decl);
-	this.body.semant();
-	SemantScope.exitScope();
-	
+	if(this.identifier == TreeConstants.self){
+	    SemantScope.trackError(this, "'self' cannot be bound in a 'let' expression.");
+	    this.body.semant();
+	}else{
+	    SemantScope.enterScope();
+	    SemantScope.addVariable(this.identifier, this.type_decl);
+	    this.body.semant();
+	    SemantScope.exitScope();
+	}
 	//if(isOk){
 	    this.set_type(this.body.get_type());
 	//}else{
@@ -1856,6 +1860,7 @@ class SemantScope {
 	SemantScope.objects = new SymbolTable();
 	currClass = AbstractTable.stringtable.addString("CurrClass12345678");
 	errorCount = 0;
+	SemantScope.enterScope();//zero scope
     }
 
     public static void enterClass(AbstractSymbol className){

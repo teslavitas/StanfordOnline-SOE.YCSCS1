@@ -190,14 +190,17 @@ class ClassTable {
 	this.FillCheckList(checkList, this.basicCls);
 	this.FillCheckList(checkList, this.cls);
 
+	boolean inheritanceIsOk = true;
 	for(int i=0;i<checkList.size();i++){
 	    if(checkList.get(i).state == 0){
-		processCheckList(checkList, checkList.get(i));
+		inheritanceIsOk &= processCheckList(checkList, checkList.get(i));
 	    }
 	}
 
-	this.checkInheritedAttributes();
-	this.checkInheritedMethods();
+	if(inheritanceIsOk){
+	    this.checkInheritedAttributes();
+	    this.checkInheritedMethods();
+	}
 	this.checkEntryPoint();
     }
 
@@ -399,6 +402,11 @@ class ClassTable {
 	    }
 	}
 
+	//not found, try to check at parent type
+	if(className != TreeConstants.Object_){
+	    return this.getAttribute(c.getParent(), attrName);
+	}
+    
 	return null;
     }
 
@@ -588,24 +596,25 @@ class ClassTable {
 		if(m.getFormals().getLength() != parentMethod.getFormals().getLength()){
 		    semantError(c);
 		    errorStream.println("Incompatible number of formal paramenters in redefined method " + m.getName());
-		}
-		for(int i=0;i<m.getFormals().getLength();++i){
-		    formalc f = (formalc)m.getFormals().getNth(i);
-		    formalc originalf = (formalc)parentMethod.getFormals().getNth(i);
+		}else{
+		    for(int i=0;i<m.getFormals().getLength();++i){
+			formalc f = (formalc)m.getFormals().getNth(i);
+			formalc originalf = (formalc)parentMethod.getFormals().getNth(i);
 
-		    //it is ok if param names are different, but they should have the same type
-		    if(f.getTypeName() != originalf.getTypeName()){
-			semantError(c);
-			errorStream.println("In redefined method " + m.getName() + "parameter type " + f.getTypeName() 
+			//it is ok if param names are different, but they should have the same type
+			if(f.getTypeName() != originalf.getTypeName()){
+			    semantError(c);
+			    errorStream.println("In redefined method " + m.getName() + "parameter type " + f.getTypeName() 
 					    + " is different from original type " + originalf.getTypeName());
+			}
 		    }
-		}
 
-		//check if return type is the same
-		if(m.getReturnType() != parentMethod.getReturnType()){
-		    semantError(c);
-		    errorStream.println("In redefined method " + m.getName() + "return type " + m.getReturnType() 
+		    //check if return type is the same
+		    if(m.getReturnType() != parentMethod.getReturnType()){
+			semantError(c);
+			errorStream.println("In redefined method " + m.getName() + "return type " + m.getReturnType() 
 					    + " is different from original " + parentMethod.getReturnType());
+		    }
 		}
 	    }
 	    
