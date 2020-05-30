@@ -280,6 +280,7 @@ class programc extends Program {
 	}
 
 	if(SemantScope.hasErrors()){
+	    System.err.println("Compilation halted due to static semantic errors.");
 	    System.exit(1);
 	}
 	//System.exit(1);//TODO: remove this
@@ -1347,7 +1348,7 @@ class neg extends Expression {
 	    SemantScope.trackError(this, "operand of - should be Int, but is " + this.e1.get_type());
 	}
 
-        this.set_type(TreeConstants.Bool);
+        this.set_type(TreeConstants.Int);
     }
 }
 

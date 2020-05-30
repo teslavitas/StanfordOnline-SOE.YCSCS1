@@ -617,7 +617,8 @@ class ClassTable {
     private void checkEntryPoint(){
 	class_c mainClass = this.getClass(TreeConstants.Main);
 	if(mainClass == null){
-	    errorStream.println("Class Main is not defined");
+	    semantErrors++;
+	    errorStream.println("Class Main is not defined.");
 	    return;
 	}
 	
@@ -634,7 +635,7 @@ class ClassTable {
 
 	if(mainMethod == null){
 	    semantError(mainClass);
-	    errorStream.println("No 'main' method in class Main");
+	    errorStream.println("No 'main' method in class Main.");
 	}
     }
 
