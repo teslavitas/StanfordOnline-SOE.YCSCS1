@@ -109,6 +109,43 @@ class CgenNode extends class_ {
 	}
         return result;
     }
+
+    public List<MethodDescription> getMethods(){
+	List<MethodDescription> result = new ArrayList<MethodDescription>();
+        if(this.getName() != TreeConstants.Object_){
+            CgenNode parent = this.getParentNd();
+            result = parent.getMethods();
+        }
+
+        for(Enumeration e = this.features.getElements();e.hasMoreElements();){
+            Feature f = (Feature)e.nextElement();
+    	
+    	    if(f instanceof method){
+		AbstractSymbol methodName = ((method)f).getName();
+		//search list generated on base classes for a method to override
+		MethodDescription existing = null;
+		for(int i=0;i<result.size();++i){
+		    if(result.get(i).methodName == methodName){
+			existing = result.get(i);
+		    }
+		}
+		if(existing != null){
+		    existing.className = this.getName();
+		}else{
+		    MethodDescription newEntry = new MethodDescription();
+		    newEntry.className = this.getName();
+		    newEntry.methodName = methodName;
+		    result.add(newEntry);
+		}
+    	    }
+	}
+        return result;
+    }
+}
+
+class MethodDescription{
+    public AbstractSymbol className;
+    public AbstractSymbol methodName;
 }
     
 
