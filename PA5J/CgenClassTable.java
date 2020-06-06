@@ -411,18 +411,9 @@ class CgenClassTable extends SymbolTable {
 	this.codeClassNameTable();
 	this.codeClassObjectTable();
 	this.codeDispatchTables();
+	this.codeProtoObjects();
 
-	for(Object definition : this.nds){
-	    CgenNode classInstance = (CgenNode)definition;
-	    System.out.println(classInstance.getName());
-	    List<AbstractSymbol> attributes = classInstance.getAttributes();
-	    for(int i=0;i<attributes.size();++i){
-		AbstractSymbol attribute = attributes.get(i);
-		//System.out.println("\t " + attribute);
-	    }
-
-	    
-	}
+	
 
 	if (Flags.cgen_debug) System.out.println("coding global text");
 	codeGlobalText();
@@ -451,8 +442,8 @@ class CgenClassTable extends SymbolTable {
 	this.str.println(CgenSupport.CLASSOBJTAB+":"); // label
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
-	    this.str.println(CgenSupport.WORD + classInstance.getName()+"_protObj"); // proto object
-	    this.str.println(CgenSupport.WORD + classInstance.getName()+"_init"); //init method
+	    this.str.println(CgenSupport.WORD + classInstance.getName()+ CgenSupport.PROTOBJ_SUFFIX); // proto object
+	    this.str.println(CgenSupport.WORD + classInstance.getName()+ CgenSupport.CLASSINIT_SUFFIX); //init method
 	}
     }
 
@@ -463,9 +454,34 @@ class CgenClassTable extends SymbolTable {
 	    List<MethodDescription> methods = classInstance.getMethods();
 	    for(int i=0;i<methods.size();++i){
 		this.str.println(CgenSupport.WORD + methods.get(i).className + "." + methods.get(i).methodName); 
-		//System.out.println("\t method: " + methods.get(i).className + "." + methods.get(i).methodName);
 	    }
 	}
+    }
+
+    private void codeProtoObjects(){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    List<AbstractSymbol> attributes = classInstance.getAttributes();
+	    this.str.println(CgenSupport.WORD + "-1");//GC tag
+	    this.str.println(classInstance.getName()+ CgenSupport.PROTOBJ_SUFFIX); // proto object label
+	    this.str.println(CgenSupport.WORD + this.getClassIndex(classInstance)); //class tag
+	    this.str.println(CgenSupport.WORD + (3+attributes.size())); //object size
+	    this.str.println(CgenSupport.WORD + classInstance.getName()+CgenSupport.DISPTAB_SUFFIX);//dispatch pointer
+
+
+	    for(int i=0;i<attributes.size();++i){
+		AbstractSymbol attribute = attributes.get(i);
+		//TODO: set default attribute values
+		this.str.println(CgenSupport.WORD + "TODO");
+		//Special logic for Int, Bool and String, see section 8 of cool AID
+	    }
+
+	    
+	}
+    }
+
+    private int getClassIndex(CgenNode classInstance){
+	return this.nds.indexOf(classInstance);
     }
 }
 			  
