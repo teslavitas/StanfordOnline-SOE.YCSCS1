@@ -376,9 +376,9 @@ class CgenClassTable extends SymbolTable {
 
 	this.str = str;
 
-	stringclasstag = 0 /* Change to your String class tag here */;
-	intclasstag =    0 /* Change to your Int class tag here */;
-	boolclasstag =   0 /* Change to your Bool class tag here */;
+	stringclasstag = 4 /* Change to your String class tag here */;
+	intclasstag =    2 /* Change to your Int class tag here */;
+	boolclasstag =   3 /* Change to your Bool class tag here */;
 
 	enterScope();
 	if (Flags.cgen_debug) System.out.println("Building CgenClassTable");
@@ -407,6 +407,7 @@ class CgenClassTable extends SymbolTable {
 	//                 Add your code to emit
 	//                   - prototype objects
 	//                   - class_nameTab
+	this.codeClassNameTab();
 	//                   - dispatch tables
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
@@ -414,7 +415,12 @@ class CgenClassTable extends SymbolTable {
 	    List<AbstractSymbol> attributes = classInstance.getAttributes();
 	    for(int i=0;i<attributes.size();++i){
 		AbstractSymbol attribute = attributes.get(i);
-		System.out.println("\t " + attribute);
+		//System.out.println("\t " + attribute);
+	    }
+
+	    List<MethodDescription> methods = classInstance.getMethods();
+	    for(int i=0;i<methods.size();++i){
+		//System.out.println("\t method: " + methods.get(i).className + "." + methods.get(i).methodName);
 	    }
 	}
 
@@ -430,6 +436,15 @@ class CgenClassTable extends SymbolTable {
     /** Gets the root of the inheritance tree */
     public CgenNode root() {
 	return (CgenNode)probe(TreeConstants.Object_);
+    }
+
+    private void codeClassNameTab(){
+	this.str.println(CgenSupport.CLASSNAMETAB); // label
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    AbstractSymbol stringInTable = AbstractTable.stringtable.lookup(classInstance.getName().getString());
+	    this.str.println(CgenSupport.WORD + CgenSupport.STRCONST_PREFIX + stringInTable.getIndex()); // tag
+	}
     }
 }
 			  
