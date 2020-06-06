@@ -407,8 +407,11 @@ class CgenClassTable extends SymbolTable {
 	//                 Add your code to emit
 	//                   - prototype objects
 	//                   - class_nameTab
-	this.codeClassNameTab();
 	//                   - dispatch tables
+	this.codeClassNameTable();
+	this.codeClassObjectTable();
+	this.codeDispatchTables();
+
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
 	    System.out.println(classInstance.getName());
@@ -418,10 +421,7 @@ class CgenClassTable extends SymbolTable {
 		//System.out.println("\t " + attribute);
 	    }
 
-	    List<MethodDescription> methods = classInstance.getMethods();
-	    for(int i=0;i<methods.size();++i){
-		//System.out.println("\t method: " + methods.get(i).className + "." + methods.get(i).methodName);
-	    }
+	    
 	}
 
 	if (Flags.cgen_debug) System.out.println("coding global text");
@@ -438,12 +438,33 @@ class CgenClassTable extends SymbolTable {
 	return (CgenNode)probe(TreeConstants.Object_);
     }
 
-    private void codeClassNameTab(){
-	this.str.println(CgenSupport.CLASSNAMETAB); // label
+    private void codeClassNameTable(){
+	this.str.println(CgenSupport.CLASSNAMETAB+":"); // label
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
 	    AbstractSymbol stringInTable = AbstractTable.stringtable.lookup(classInstance.getName().getString());
 	    this.str.println(CgenSupport.WORD + CgenSupport.STRCONST_PREFIX + stringInTable.getIndex()); // tag
+	}
+    }
+
+    private void codeClassObjectTable(){
+	this.str.println(CgenSupport.CLASSOBJTAB+":"); // label
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    this.str.println(CgenSupport.WORD + classInstance.getName()+"_protObj"); // proto object
+	    this.str.println(CgenSupport.WORD + classInstance.getName()+"_init"); //init method
+	}
+    }
+
+    private void codeDispatchTables(){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    this.str.println(classInstance.getName() + CgenSupport.DISPTAB_SUFFIX+":"); // label
+	    List<MethodDescription> methods = classInstance.getMethods();
+	    for(int i=0;i<methods.size();++i){
+		this.str.println(CgenSupport.WORD + methods.get(i).className + "." + methods.get(i).methodName); 
+		//System.out.println("\t method: " + methods.get(i).className + "." + methods.get(i).methodName);
+	    }
 	}
     }
 }
