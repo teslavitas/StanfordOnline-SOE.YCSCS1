@@ -465,7 +465,7 @@ class CgenClassTable extends SymbolTable {
 	    CgenNode classInstance = (CgenNode)definition;
 	    List<AttributeDescription> attributes = classInstance.getAttributes();
 	    this.str.println(CgenSupport.WORD + "-1");//GC tag
-	    this.str.println(classInstance.getName()+ CgenSupport.PROTOBJ_SUFFIX); // proto object label
+	    this.str.println(classInstance.getName()+ CgenSupport.PROTOBJ_SUFFIX + ":"); // proto object label
 	    this.str.println(CgenSupport.WORD + this.getClassIndex(classInstance)); //class tag
 	    this.str.println(CgenSupport.WORD + (3+attributes.size())); //object size
 	    this.str.println(CgenSupport.WORD + classInstance.getName()+CgenSupport.DISPTAB_SUFFIX);//dispatch pointer
@@ -513,7 +513,7 @@ class CgenClassTable extends SymbolTable {
         	    if(f instanceof method){
 			method m = (method)f;
 			this.str.println(classInstance.getName() + "." + m.getName() + ":");
-			this.str.println("TODO");
+			m.code(this.str);
 		    }
 		}
 	    }

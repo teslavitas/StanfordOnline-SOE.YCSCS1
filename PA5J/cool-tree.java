@@ -402,6 +402,18 @@ class method extends Feature {
     public AbstractSymbol getName(){
 	return this.name;
     }
+    public void code(PrintStream str){
+	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.SP, str);// store current stack pointer as a frame pointer
+	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address
+	str.println("\t# start of method body");
+	this.expr.code(str);
+	str.println("\t# end of method body");
+	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
+	int frameSize = (2 + this.formals.getLength()) * CgenSupport.WORD_SIZE;
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
+	CgenSupport.emitLoad(CgenSupport.FP, 0, CgenSupport.SP, str);//restore old frame pointer
+	CgenSupport.emitReturn(str);//return control to caller
+    }
 }
 
 
@@ -975,6 +987,16 @@ class plus extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# calculate first argument of +");
+	this.e1.code(s);
+	s.println("\t# strore first argument of + in stact and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	this.e2.code(s);
+	s.println("\t# restore first argument of + and perform operation");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitAdd(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
+	//s.println("\t# end of +");
     }
 
 
@@ -1021,6 +1043,15 @@ class sub extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# calculate first argument of -");
+	this.e1.code(s);
+	s.println("\t# strore first argument of - in stact and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	this.e2.code(s);
+	s.println("\t# restore first argument of - and perform operation");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitSub(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
 
@@ -1067,6 +1098,15 @@ class mul extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# calculate first argument of *");
+	this.e1.code(s);
+	s.println("\t# strore first argument of * in stact and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	this.e2.code(s);
+	s.println("\t# restore first argument of * and perform operation");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitMul(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
 
@@ -1113,6 +1153,15 @@ class divide extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# calculate first argument of /");
+	this.e1.code(s);
+	s.println("\t# strore first argument of / in stact and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	this.e2.code(s);
+	s.println("\t# restore first argument of / and perform operation");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitDiv(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
 
