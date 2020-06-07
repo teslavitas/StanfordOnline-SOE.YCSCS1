@@ -92,11 +92,11 @@ class CgenNode extends class_ {
 	return basic_status == Basic; 
     }
 
-    public List<AbstractSymbol> getAttributes(){
-        List<AbstractSymbol> result = new ArrayList<AbstractSymbol>();
+    public List<AttributeDescription> getAttributes(){
+        List<AttributeDescription> result = new ArrayList<AttributeDescription>();
         if(this.getName() != TreeConstants.Object_){
             CgenNode parent = this.getParentNd();
-            List<AbstractSymbol> parentList = parent.getAttributes();
+            List<AttributeDescription> parentList = parent.getAttributes();
 	    result.addAll(parentList);
         }
 
@@ -104,7 +104,10 @@ class CgenNode extends class_ {
             Feature f = (Feature)e.nextElement();
     	
     	    if(f instanceof attr){
-		result.add(((attr)f).getName());
+		AttributeDescription desc = new AttributeDescription();
+		desc.name = ((attr)f).getName();
+		desc.type = ((attr)f).type_decl;
+		result.add(desc);
     	    }
 	}
         return result;
@@ -148,5 +151,8 @@ class MethodDescription{
     public AbstractSymbol methodName;
 }
     
-
+class AttributeDescription{
+    public AbstractSymbol name;
+    public AbstractSymbol type;
+}
     

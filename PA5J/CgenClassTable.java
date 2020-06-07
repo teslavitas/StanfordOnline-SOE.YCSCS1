@@ -422,6 +422,8 @@ class CgenClassTable extends SymbolTable {
 	//                   - object initializer
 	//                   - the class methods
 	//                   - etc...
+	this.codeClassInits();
+	this.codeClassMethods();
     }
 
     /** Gets the root of the inheritance tree */
@@ -461,7 +463,7 @@ class CgenClassTable extends SymbolTable {
     private void codeProtoObjects(){
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
-	    List<AbstractSymbol> attributes = classInstance.getAttributes();
+	    List<AttributeDescription> attributes = classInstance.getAttributes();
 	    this.str.println(CgenSupport.WORD + "-1");//GC tag
 	    this.str.println(classInstance.getName()+ CgenSupport.PROTOBJ_SUFFIX); // proto object label
 	    this.str.println(CgenSupport.WORD + this.getClassIndex(classInstance)); //class tag
@@ -470,13 +472,51 @@ class CgenClassTable extends SymbolTable {
 
 
 	    for(int i=0;i<attributes.size();++i){
-		AbstractSymbol attribute = attributes.get(i);
-		//TODO: set default attribute values
-		this.str.println(CgenSupport.WORD + "TODO");
-		//Special logic for Int, Bool and String, see section 8 of cool AID
+		AttributeDescription attribute = attributes.get(i);
+		//special logic for Int, Bool and String
+		if(attribute.type == TreeConstants.Int){
+		    this.str.print(CgenSupport.WORD);
+		    IntSymbol defaultInTable = (IntSymbol)(AbstractTable.inttable.addInt(0));
+		    defaultInTable.codeRef(this.str);
+		    this.str.println();
+		} else if (attribute.type == TreeConstants.Bool){
+		    this.str.print(CgenSupport.WORD);
+		    BoolConst.falsebool.codeRef(this.str);
+		    this.str.println();
+		} else if (attribute.type == TreeConstants.Str){
+		    this.str.print(CgenSupport.WORD);
+		    StringSymbol defaultInTable = (StringSymbol)(AbstractTable.stringtable.addString(""));
+		    defaultInTable.codeRef(this.str);
+		    this.str.println();
+		} else {
+		    //void value for other types
+		    this.str.println(CgenSupport.WORD + CgenSupport.EMPTYSLOT);
+		}
 	    }
+	}
+    }
 
-	    
+    private void codeClassInits(){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    this.str.println(classInstance.getName()+ CgenSupport.CLASSINIT_SUFFIX + ":"); // proto object label
+	    this.str.println("TODO");
+	}
+    }
+
+    private void codeClassMethods(){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    if(!classInstance.basic()){
+		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
+        	    Feature f = (Feature)e.nextElement();
+        	    if(f instanceof method){
+			method m = (method)f;
+			this.str.println(classInstance.getName() + "." + m.getName() + ":");
+			this.str.println("TODO");
+		    }
+		}
+	    }
 	}
     }
 
