@@ -500,7 +500,7 @@ class CgenClassTable extends SymbolTable {
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
 	    this.str.println(classInstance.getName()+ CgenSupport.CLASSINIT_SUFFIX + ":"); // proto object label
-	    this.str.println("TODO");
+	    classInstance.codeInitMethod(this.str);
 	}
     }
 

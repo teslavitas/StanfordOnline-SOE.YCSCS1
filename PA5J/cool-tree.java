@@ -351,6 +351,25 @@ class class_ extends Class_ {
     public AbstractSymbol getFilename() { return filename; }
     public Features getFeatures()       { return features; }
 
+    public void codeInitMethod(PrintStream str){
+	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.SP, str);// store current stack pointer as a frame pointer
+	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address
+	str.println("\t# start of object init body");
+	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
+    	    Feature f = (Feature)e.nextElement();
+    	    if(f instanceof attr){
+		attr a = (attr)f;
+		str.println("\t#init for " + a.getName());
+		a.init.code(str);
+    	    }
+	}
+	str.println("\t# end of object init body");
+	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
+	int frameSize = 2 * CgenSupport.WORD_SIZE;
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
+	CgenSupport.emitLoad(CgenSupport.FP, 0, CgenSupport.SP, str);//restore old frame pointer
+	CgenSupport.emitReturn(str);//return control to caller
+    }
 }
 
 
