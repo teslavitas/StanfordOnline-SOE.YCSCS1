@@ -499,8 +499,14 @@ class CgenClassTable extends SymbolTable {
     private void codeClassInits(){
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
+	    CgenScope.init();
+	    CgenScope.enterScope();
+	    CgenScope.addAttributes(classInstance);
+
 	    this.str.println(classInstance.getName()+ CgenSupport.CLASSINIT_SUFFIX + ":"); // proto object label
 	    classInstance.codeInitMethod(this.str);
+
+	    CgenScope.exitScope();
 	}
     }
 
@@ -508,14 +514,25 @@ class CgenClassTable extends SymbolTable {
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
 	    if(!classInstance.basic()){
+		CgenScope.init();
+		CgenScope.enterScope();
+		CgenScope.addAttributes(classInstance);
+
 		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
         	    Feature f = (Feature)e.nextElement();
         	    if(f instanceof method){
 			method m = (method)f;
+			
+			CgenScope.enterScope();
+			CgenScope.addFormals(m);
+
 			this.str.println(classInstance.getName() + "." + m.getName() + ":");
 			m.code(this.str);
+
+			CgenScope.exitScope();
 		    }
 		}
+		CgenScope.exitScope();
 	    }
 	}
     }

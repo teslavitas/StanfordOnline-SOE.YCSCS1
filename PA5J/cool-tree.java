@@ -1689,4 +1689,88 @@ class object extends Expression {
 
 }
 
+class ObjectDescription{
+    public AbstractSymbol name;
+    //attributes are offset relatime to self, other variable - relative to frame pointer
+    public boolean isAttribute;
+    public int offset;
+}
 
+class CgenScope {
+    //ofset of the last variable in frame
+    private static int frameOffset;
+    private static SymbolTable objects;
+    //write an error message if there is more frame objects then max
+    private static int maxObjectsCount;
+    public static void init(){
+	frameOffset = 2;//initial frame offset in words//TODO: check it
+	objects = new SymbolTable();
+	maxObjectsCount = -1;
+    }
+
+    public static void addAttributes(class_ classInstance){
+	objects.enterScope();
+	//first attribute is located in the word number 3 of a self object
+	int attributeOffset = 3;
+	for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
+    	    Feature f = (Feature)e.nextElement();
+    	    if(f instanceof attr){
+		attr a = (attr)f;
+		
+		ObjectDescription desc = new ObjectDescription();
+		desc.name = a.getName();
+		desc.isAttribute = true;
+		desc.offset = attributeOffset;
+
+		objects.addId(a.getName(), desc);
+		attributeOffset++;
+    	    }
+	}
+    }
+    public static void addFormals(method m){
+	for (Enumeration e = m.formals.getElements(); e.hasMoreElements();) {
+
+	    ObjectDescription desc = new ObjectDescription();
+	    desc.name = ((formal)e).name;
+	    desc.isAttribute = false;
+	    desc.offset = frameOffset;
+    
+	    objects.addId(desc.name, desc);
+
+	    if(maxObjectsCount >=0 && frameOffset - 3 > maxObjectsCount){
+		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
+	    }
+	    frameOffset++;
+        }
+    }
+
+    public static void addObject(AbstractSymbol name){
+	ObjectDescription desc = new ObjectDescription();
+	desc.name = name;
+	desc.isAttribute = false;
+	desc.offset = frameOffset;
+    
+	objects.addId(desc.name, desc);
+
+	if(maxObjectsCount >=0 && frameOffset - 3 > maxObjectsCount){
+		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
+	    }
+	frameOffset++;
+    }
+
+    public static ObjectDescription getObjectDescription(AbstractSymbol name){
+	return (ObjectDescription)objects.lookup(name);
+    }
+
+    public static void enterScope(){
+	objects.enterScope();
+    }
+    
+    public static void exitScope(){
+	objects.exitScope();
+    }
+
+    public static void setMaxObjetsCount(int count){
+	maxObjectsCount = count;
+    }
+}
