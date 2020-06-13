@@ -1865,6 +1865,21 @@ class object extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	if(this.name == TreeConstants.self){
+	    CgenSupport.emitLoad(CgenSupport.ACC, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
+	    return;
+	}
+	
+	ObjectDescription desc = CgenScope.getObjectDescription(this.name);
+	if(desc.isAttribute){
+	    //attributes are located in the self object starting with offset 3
+	    CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
+	    int zeroAttributeOffset = 3;
+	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset + zeroAttributeOffset, CgenSupport.T1, s);//load attribute to $a0
+	}else{
+	    //formal parameters and variables are located in the frame
+	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset, CgenSupport.FP, s);//load to $a0
+	}
     }
 
     public int countActiveVariables(){
@@ -1885,11 +1900,14 @@ class CgenScope {
     private static SymbolTable objects;
     //write an error message if there is more frame objects then max
     private static int maxObjectsCount;
+    //offset of the self object relative to frame pointer in stack
+    public static int selfObjectOffset;
 
     public static void init(){
 	objects = new SymbolTable();
 	maxObjectsCount = -1;
 	objectOffset = 0;
+	selfObjectOffset = 0;
     }
 
     public static void addAttributes(class_ classInstance){
