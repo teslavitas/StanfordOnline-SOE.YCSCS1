@@ -156,6 +156,7 @@ abstract class Expression extends TreeNode {
             { out.println(Utilities.pad(n) + ": _no_type"); }
     }
     public abstract void code(PrintStream s);
+    public abstract int countActiveVariables();
 
 }
 
@@ -352,8 +353,24 @@ class class_ extends Class_ {
     public Features getFeatures()       { return features; }
 
     public void codeInitMethod(PrintStream str){
+	//count number of variables
+	int maxActiveVariables = 0;
+	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
+    	    Feature f = (Feature)e.nextElement();
+    	    if(f instanceof attr){
+		attr a = (attr)f;
+		int n = a.init.countActiveVariables();
+		if(n > maxActiveVariables){
+		    maxActiveVariables = n;
+		}
+	    }
+	}
+	
+
+	//generate code
 	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.SP, str);// store current stack pointer as a frame pointer
 	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address
+	//TODO: reserve space for variables
 	str.println("\t# start of object init body");
 	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
     	    Feature f = (Feature)e.nextElement();
@@ -364,6 +381,7 @@ class class_ extends Class_ {
     	    }
 	}
 	str.println("\t# end of object init body");
+	//TODO: clear variables from stack
 	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
 	int frameSize = 2 * CgenSupport.WORD_SIZE;
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
@@ -381,6 +399,8 @@ class method extends Feature {
     public Formals formals;
     public AbstractSymbol return_type;
     public Expression expr;
+    //ammount of maximum simultaneously active variables that need space in an activation record
+    public int variablesCount;
     /** Creates "method" AST node. 
       *
       * @param lineNumber the line in the source file from which this node came.
@@ -395,6 +415,7 @@ class method extends Feature {
         formals = a2;
         return_type = a3;
         expr = a4;
+	variablesCount = 0;
     }
     public TreeNode copy() {
         return new method(lineNumber, copy_AbstractSymbol(name), (Formals)formals.copy(), copy_AbstractSymbol(return_type), (Expression)expr.copy());
@@ -432,6 +453,10 @@ class method extends Feature {
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
 	CgenSupport.emitLoad(CgenSupport.FP, 0, CgenSupport.SP, str);//restore old frame pointer
 	CgenSupport.emitReturn(str);//return control to caller
+    }
+
+    public void countVariables(){
+	this.variablesCount = this.expr.countActiveVariables();
     }
 }
 
@@ -558,6 +583,10 @@ class branch extends Case {
 	expr.dump_with_types(out, n + 2);
     }
 
+    public int countActiveVariables(){
+	return this.expr.countActiveVariables() + 1;//branch intoduces a variable
+    }
+
 }
 
 
@@ -603,7 +632,9 @@ class assign extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return this.expr.countActiveVariables();
+    }
 }
 
 
@@ -663,7 +694,19 @@ class static_dispatch extends Expression {
     public void code(PrintStream s) {
     }
 
+    public int countActiveVariables(){
+	int result = this.expr.countActiveVariables();
 
+	for(int i = 0; i<this.actual.getLength(); ++i){
+    	    Expression e = (Expression)this.actual.getNth(i);	    
+    	    int n = e.countActiveVariables();
+	    if(n>result){
+		result = n;
+	    }
+	}
+
+	return result;
+    }
 }
 
 
@@ -718,7 +761,19 @@ class dispatch extends Expression {
     public void code(PrintStream s) {
     }
 
+    public int countActiveVariables(){
+	int result = this.expr.countActiveVariables();
 
+	for(int i = 0; i<this.actual.getLength(); ++i){
+    	    Expression e = (Expression)this.actual.getNth(i);	    
+    	    int n = e.countActiveVariables();
+	    if(n>result){
+		result = n;
+	    }
+	}
+
+	return result;
+    }
 }
 
 
@@ -769,7 +824,19 @@ class cond extends Expression {
     public void code(PrintStream s) {
     }
 
+    public int countActiveVariables(){
+	int result =  this.pred.countActiveVariables();
+	int nthen = this.then_exp.countActiveVariables();
+	int nelse = this.else_exp.countActiveVariables();
+	if(nthen > result){
+	    result = nthen;
+	}
+	if(nelse > result){
+	    result = nelse;
+	}
 
+	return result;
+    }
 }
 
 
@@ -815,7 +882,15 @@ class loop extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	int npred = this.pred.countActiveVariables();
+	int nbody = this.body.countActiveVariables();
+	if(npred > nbody){
+	    return npred;
+	} else {
+	    return nbody;
+	}
+    }
 }
 
 
@@ -863,7 +938,19 @@ class typcase extends Expression {
     public void code(PrintStream s) {
     }
 
+    public int countActiveVariables(){
+	int result = this.expr.countActiveVariables();
 
+	for(int i = 0; i<this.cases.getLength(); ++i){
+    	    branch b = (branch)this.cases.getNth(i);	    
+    	    int n = b.countActiveVariables();
+	    if(n>result){
+		result = n;
+	    }
+	}
+
+	return result;
+    }
 }
 
 
@@ -906,7 +993,18 @@ class block extends Expression {
     public void code(PrintStream s) {
     }
 
+    public int countActiveVariables(){
+	int result = 0;
+	for(int i = 0; i<this.body.getLength(); ++i){
+            Expression e = (Expression)this.body.getNth(i);
+	    int n = e.countActiveVariables();
+	    if(n>result){
+		result = n;
+	    }
+	}
 
+	return result;
+    }
 }
 
 
@@ -962,7 +1060,15 @@ class let extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	int ninit = this.init.countActiveVariables();
+	int nbody = this.body.countActiveVariables() + 1;//one variable is declared by the let itself
+	if(ninit>nbody){
+	    return ninit;
+	}else{
+	    return nbody;
+	}
+    }
 }
 
 
@@ -1018,7 +1124,15 @@ class plus extends Expression {
 	//s.println("\t# end of +");
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1073,7 +1187,15 @@ class sub extends Expression {
 	CgenSupport.emitSub(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1128,7 +1250,15 @@ class mul extends Expression {
 	CgenSupport.emitMul(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1183,7 +1313,15 @@ class divide extends Expression {
 	CgenSupport.emitDiv(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1224,7 +1362,9 @@ class neg extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return this.e1.countActiveVariables();
+    }
 }
 
 
@@ -1270,7 +1410,15 @@ class lt extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1316,7 +1464,15 @@ class eq extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1362,7 +1518,15 @@ class leq extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	int n1 = this.e1.countActiveVariables();
+	int n2 = this.e2.countActiveVariables();
+	if(n1>n2){
+	    return n1;
+	}else{
+	    return n2;
+	}
+    }
 }
 
 
@@ -1403,7 +1567,9 @@ class comp extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return this.e1.countActiveVariables();
+    }
 }
 
 
@@ -1445,6 +1611,9 @@ class int_const extends Expression {
                                 (IntSymbol)AbstractTable.inttable.lookup(token.getString()), s);
     }
 
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 
@@ -1485,6 +1654,9 @@ class bool_const extends Expression {
 	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(val), s);
     }
 
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 
@@ -1528,6 +1700,9 @@ class string_const extends Expression {
                                    (StringSymbol)AbstractTable.stringtable.lookup(token.getString()), s);
     }
 
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 
@@ -1568,7 +1743,9 @@ class new_ extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 
@@ -1609,7 +1786,9 @@ class isvoid extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return this.e1.countActiveVariables();
+    }
 }
 
 
@@ -1645,7 +1824,9 @@ class no_expr extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 
@@ -1686,32 +1867,34 @@ class object extends Expression {
     public void code(PrintStream s) {
     }
 
-
+    public int countActiveVariables(){
+	return 0;
+    }
 }
 
 class ObjectDescription{
     public AbstractSymbol name;
-    //attributes are offset relatime to self, other variable - relative to frame pointer
+    //attributes are offset relatime to self, other variables - relative to frame pointer
     public boolean isAttribute;
     public int offset;
 }
 
 class CgenScope {
-    //ofset of the last variable in frame
-    private static int frameOffset;
+    //order number of an object, points to the next free memory slot
+    private static int objectOffset;
     private static SymbolTable objects;
     //write an error message if there is more frame objects then max
     private static int maxObjectsCount;
+
     public static void init(){
-	frameOffset = 2;//initial frame offset in words//TODO: check it
 	objects = new SymbolTable();
 	maxObjectsCount = -1;
+	objectOffset = 0;
     }
 
     public static void addAttributes(class_ classInstance){
 	objects.enterScope();
-	//first attribute is located in the word number 3 of a self object
-	int attributeOffset = 3;
+	int attributeOffset = 0;
 	for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
     	    Feature f = (Feature)e.nextElement();
     	    if(f instanceof attr){
@@ -1733,14 +1916,15 @@ class CgenScope {
 	    ObjectDescription desc = new ObjectDescription();
 	    desc.name = ((formal)e).name;
 	    desc.isAttribute = false;
-	    desc.offset = frameOffset;
+	    desc.offset = objectOffset;
     
 	    objects.addId(desc.name, desc);
 
-	    if(maxObjectsCount >=0 && frameOffset - 3 > maxObjectsCount){
+	    if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount - 1){
 		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
 	    }
-	    frameOffset++;
+
+	    objectOffset++;
         }
     }
 
@@ -1748,14 +1932,15 @@ class CgenScope {
 	ObjectDescription desc = new ObjectDescription();
 	desc.name = name;
 	desc.isAttribute = false;
-	desc.offset = frameOffset;
+	desc.offset = objectOffset;
     
 	objects.addId(desc.name, desc);
 
-	if(maxObjectsCount >=0 && frameOffset - 3 > maxObjectsCount){
-		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
-	    }
-	frameOffset++;
+	if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount - 1){
+	    throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
+	}
+
+	objectOffset++;
     }
 
     public static ObjectDescription getObjectDescription(AbstractSymbol name){
@@ -1767,6 +1952,8 @@ class CgenScope {
     }
     
     public static void exitScope(){
+	// object slots from the scope can be reused
+	objectOffset -= objects.getTopScopeSize();
 	objects.exitScope();
     }
 

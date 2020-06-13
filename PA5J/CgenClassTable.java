@@ -422,6 +422,7 @@ class CgenClassTable extends SymbolTable {
 	//                   - object initializer
 	//                   - the class methods
 	//                   - etc...
+	this.countVariablesInMethods();
 	this.codeClassInits();
 	this.codeClassMethods();
     }
@@ -510,6 +511,22 @@ class CgenClassTable extends SymbolTable {
 	}
     }
 
+    //check how many stack slots method needs for variables. Slots will be a part of an activation record
+    private void countVariablesInMethods(){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    if(!classInstance.basic()){
+		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
+        	    Feature f = (Feature)e.nextElement();
+        	    if(f instanceof method){
+			method m = (method)f;
+			m.countVariables();
+		    }
+		}
+	    }
+	}		
+    }
+
     private void codeClassMethods(){
 	for(Object definition : this.nds){
 	    CgenNode classInstance = (CgenNode)definition;
@@ -521,8 +538,8 @@ class CgenClassTable extends SymbolTable {
 		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
         	    Feature f = (Feature)e.nextElement();
         	    if(f instanceof method){
-			method m = (method)f;
-			
+			method m = (method)f;		
+
 			CgenScope.enterScope();
 			CgenScope.addFormals(m);
 
