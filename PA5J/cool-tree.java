@@ -1,4 +1,4 @@
-// -*- mode: java -*- 
+// -*- mode: java
 //
 // file: cool-tree.m4
 //
@@ -443,15 +443,22 @@ class method extends Feature {
 	return this.name;
     }
     public void code(PrintStream str){
-	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.SP, str);// store current stack pointer as a frame pointer
+	// set new frame pointer address to the first formal and store it in $t1
+	CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.SP, this.formals.getLength() * CgenSupport.WORD_SIZE, str);
+	//reserve space for local variables in stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, this.variablesCount * CgenSupport.WORD_SIZE * (-1), str);
+	CgenSupport.emitPush(CgenSupport.ACC, str);//put self object to stack from $a0
+	CgenSupport.emitPush(CgenSupport.FP, str);//store old frame pointer to stack
 	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address
+	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.T1, str);//set new frame pointer
 	str.println("\t# start of method body");
 	this.expr.code(str);
 	str.println("\t# end of method body");
 	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
-	int frameSize = (2 + this.formals.getLength()) * CgenSupport.WORD_SIZE;
+	CgenSupport.emitLoad(CgenSupport.FP, 2, CgenSupport.SP, str);//restore old frame pointer
+	//frame size inclues return addr, frame pointer, self object, formals and variables
+	int frameSize = (3 + this.formals.getLength() + this.variablesCount) * CgenSupport.WORD_SIZE;
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
-	CgenSupport.emitLoad(CgenSupport.FP, 0, CgenSupport.SP, str);//restore old frame pointer
 	CgenSupport.emitReturn(str);//return control to caller
     }
 
@@ -759,6 +766,46 @@ class dispatch extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	//evaluate formals and put their values to stack
+	int paramNumber = 0;
+	for (Enumeration e = actual.getElements(); e.hasMoreElements();) {
+	    Expression ex = (Expression)e.nextElement();
+	    s.println("\t# evaluating formal parameter " + paramNumber + " and putting it to stack");
+	    ex.code(s);
+	    CgenSupport.emitPush(CgenSupport.ACC, s);//store param value in stack
+        }
+	//evaluate expression
+	s.println("\t# evaluating dispatch object");
+	this.expr.code(s);
+	
+	//check for void
+	s.println("\t# checking dispatch object for void");
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBne(CgenSupport.ACC, CgenSupport.ZERO, label, s);
+	s.println("\t# terminate on void dispatch");
+	CgenSupport.emitLoadAddress(CgenSupport.ACC, "str_const0", s);//error message
+	CgenSupport.emitLoadImm(CgenSupport.T1, this.lineNumber, s);
+	CgenSupport.emitJal("_dispatch_abort", s);
+
+	CgenSupport.emitLabelDef(label, s);
+
+	//get method lable from a class table
+	AbstractSymbol objectType = this.expr.get_type();
+	if(objectType == TreeConstants.SELF_TYPE){
+	    objectType = CgenContext.currentClass;
+	}
+	
+	int labelIndex = CgenContext.classTable.getMethodIndex(objectType, this.name);
+	s.println("\t# load dispatch reference from object to $t1");
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DISPTABLE_OFFSET, CgenSupport.ACC, s);
+	s.println("\t# load method label from dispatch table to $t1. class " + objectType + " method "
+	    + this.name);
+	CgenSupport.emitLoad(CgenSupport.T1, labelIndex, CgenSupport.T1, s);
+
+	//give control to a callee
+	s.println("\t# give control to a callee");
+	CgenSupport.emitJalr(CgenSupport.T1, s);
     }
 
     public int countActiveVariables(){
@@ -1932,14 +1979,16 @@ class CgenScope {
 	for (Enumeration e = m.formals.getElements(); e.hasMoreElements();) {
 
 	    ObjectDescription desc = new ObjectDescription();
-	    desc.name = ((formal)e).name;
+	    formal f = (formal)e.nextElement();
+	    desc.name = f.name;
 	    desc.isAttribute = false;
 	    desc.offset = objectOffset;
     
 	    objects.addId(desc.name, desc);
 
-	    if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount - 1){
-		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
+	    if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount){
+		throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more " 
+		    + m.getName());
 	    }
 
 	    objectOffset++;
@@ -1954,8 +2003,9 @@ class CgenScope {
     
 	objects.addId(desc.name, desc);
 
-	if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount - 1){
-	    throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more");
+	if(maxObjectsCount >=0 && objectOffset >= maxObjectsCount){
+	    throw new IllegalArgumentException("expect " + maxObjectsCount + " variables in scope, but has more "
+		+ name);
 	}
 
 	objectOffset++;
@@ -1975,7 +2025,16 @@ class CgenScope {
 	objects.exitScope();
     }
 
-    public static void setMaxObjetsCount(int count){
+    public static void setMaxObjectsCount(int count){
 	maxObjectsCount = count;
     }
+}
+
+class CgenContext{
+    //offset of the self object relative to frame pointer in stack
+    public static int selfObjectOffset;
+    //global label counter, point to next unused label number
+    public static int labelNumber = 0;
+    public static CgenClassTable classTable;
+    public static AbstractSymbol currentClass;
 }

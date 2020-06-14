@@ -40,6 +40,8 @@ class CgenNode extends class_ {
     /** Does this node correspond to a basic class? */
     private int basic_status;
 
+    private List<MethodDescription> methodDescriptions;
+
     /** Constructs a new CgenNode to represent class "c".
      * @param c the class
      * @param basic_status is this class basic or not
@@ -114,6 +116,11 @@ class CgenNode extends class_ {
     }
 
     public List<MethodDescription> getMethods(){
+	//check cached value first
+	if(this.methodDescriptions != null){
+	    return this.methodDescriptions;
+	}
+
 	List<MethodDescription> result = new ArrayList<MethodDescription>();
         if(this.getName() != TreeConstants.Object_){
             CgenNode parent = this.getParentNd();
@@ -142,7 +149,19 @@ class CgenNode extends class_ {
 		}
     	    }
 	}
+	
+	this.methodDescriptions = result;
         return result;
+    }
+
+    public int getMethodIndex(AbstractSymbol methodName){
+	List<MethodDescription> methods = this.getMethods();
+	for(int i=0;i<methods.size();++i){
+	    if(methods.get(i).methodName == methodName){
+		return i;
+	    }
+	}
+	return -1;
     }
 }
 

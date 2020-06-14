@@ -422,6 +422,7 @@ class CgenClassTable extends SymbolTable {
 	//                   - object initializer
 	//                   - the class methods
 	//                   - etc...
+	CgenContext.classTable = this;
 	this.countVariablesInMethods();
 	this.codeClassInits();
 	this.codeClassMethods();
@@ -430,6 +431,17 @@ class CgenClassTable extends SymbolTable {
     /** Gets the root of the inheritance tree */
     public CgenNode root() {
 	return (CgenNode)probe(TreeConstants.Object_);
+    }
+
+    //returns index of a method in dispatch table
+    public int getMethodIndex(AbstractSymbol className, AbstractSymbol methodName){
+	for(Object definition : this.nds){
+	    CgenNode classInstance = (CgenNode)definition;
+	    if(classInstance.getName() == className){
+		return classInstance.getMethodIndex(methodName);
+	    }
+	}
+	return -1;
     }
 
     private void codeClassNameTable(){
@@ -534,6 +546,7 @@ class CgenClassTable extends SymbolTable {
 		CgenScope.init();
 		CgenScope.enterScope();
 		CgenScope.addAttributes(classInstance);
+		CgenContext.currentClass = classInstance.getName();
 
 		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
         	    Feature f = (Feature)e.nextElement();
@@ -541,6 +554,7 @@ class CgenClassTable extends SymbolTable {
 			method m = (method)f;		
 
 			CgenScope.enterScope();
+			CgenScope.setMaxObjectsCount(m.variablesCount + m.formals.getLength());
 			CgenScope.addFormals(m);
 
 			this.str.println(classInstance.getName() + "." + m.getName() + ":");
