@@ -1788,6 +1788,43 @@ class new_ extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start new " + type_name); 
+
+	if(this.type_name == TreeConstants.SELF_TYPE){
+	    CgenSupport.emitLoad(CgenSupport.ACC, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
+	    //load seft class number to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, CgenSupport.TAG_OFFSET, CgenSupport.ACC, s);
+	    //load object table to t1
+	    CgenSupport.emitLoadAddress(CgenSupport.T1, CgenSupport.CLASSOBJTAB, s);
+	    //address of proto objects has offset 2*$a0 from t1
+	    //multiply $a0 by 2 by shifting and store in $a0
+	    CgenSupport.emitSll(CgenSupport.ACC, CgenSupport.ACC, 1, s);
+	    //load address of proto object to $s0 by addit address of the object table and offset
+	    CgenSupport.emitAddu(CgenSupport.SELF, CgenSupport.ACC, CgenSupport.T1, s);
+	    //load proto object to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, 0, CgenSupport.SELF, s);
+	    //clone proto object
+	    CgenSupport.emitJal("Object.copy", s);
+	    
+	    //now we need to init attribues
+	    //hope thant Object.copy didn't override $s0 and it still contains address of the proto object
+	    //address of the init method is on offset 1 from proto object. Load init method label to $t1
+	    CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SELF, s);
+	    //give control to object initializer
+	    CgenSupport.emitJalr(CgenSupport.T1, s);	
+	    //CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
+	}else{
+	    //load proto object to a0
+	    CgenSupport.emitLoadAddress(CgenSupport.ACC, this.type_name + CgenSupport.PROTOBJ_SUFFIX,s);
+	    //clone proto object
+	    CgenSupport.emitJal("Object.copy", s);
+    	    //call init			
+	    CgenSupport.emitJal(this.type_name + CgenSupport.CLASSINIT_SUFFIX, s);
+	}
+
+
+
+	s.println("\t# finish new");
     }
 
     public int countActiveVariables(){
@@ -1921,8 +1958,8 @@ class object extends Expression {
 	if(desc.isAttribute){
 	    //attributes are located in the self object starting with offset 3
 	    CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
-	    int zeroAttributeOffset = 3;
-	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset + zeroAttributeOffset, CgenSupport.T1, s);//load attribute to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset + CgenSupport.DEFAULT_OBJFIELDS, 
+		CgenSupport.T1, s);//load attribute to $a0
 	}else{
 	    //formal parameters and variables are located in the frame
 	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset, CgenSupport.FP, s);//load to $a0
