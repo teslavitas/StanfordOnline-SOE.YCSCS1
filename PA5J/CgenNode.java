@@ -109,6 +109,7 @@ class CgenNode extends class_ {
 		AttributeDescription desc = new AttributeDescription();
 		desc.name = ((attr)f).getName();
 		desc.type = ((attr)f).type_decl;
+		desc.initExpr = ((attr)f).init;
 		result.add(desc);
     	    }
 	}
@@ -173,5 +174,6 @@ class MethodDescription{
 class AttributeDescription{
     public AbstractSymbol name;
     public AbstractSymbol type;
+    public Expression initExpr;
 }
     

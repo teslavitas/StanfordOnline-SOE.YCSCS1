@@ -10,7 +10,7 @@
 
 import java.util.Enumeration;
 import java.io.PrintStream;
-import java.util.Vector;
+import java.util.*;
 
 
 /** Defines simple phylum Program */
@@ -355,37 +355,51 @@ class class_ extends Class_ {
     public void codeInitMethod(PrintStream str){
 	//count number of variables
 	int maxActiveVariables = 0;
-	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
-    	    Feature f = (Feature)e.nextElement();
-    	    if(f instanceof attr){
-		attr a = (attr)f;
-		int n = a.init.countActiveVariables();
+	List<AttributeDescription> attributes = CgenContext.currentClass.getAttributes();
+	for(int i=0;i<attributes.size();++i){
+	    AttributeDescription attribute = attributes.get(i);
+	    int n = attribute.initExpr.countActiveVariables();
 		if(n > maxActiveVariables){
 		    maxActiveVariables = n;
 		}
-	    }
 	}
 	
+	CgenContext.selfObjectOffset = maxActiveVariables;
+	CgenScope.setMaxObjectsCount(maxActiveVariables);
 
 	//generate code
-	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.SP, str);// store current stack pointer as a frame pointer
-	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address
-	//TODO: reserve space for variables
+	//store stack pointer to $t1, it will be used as a frame pointer
+	CgenSupport.emitMove(CgenSupport.T1, CgenSupport.SP, str);
+	//reserve space for local variables in stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, maxActiveVariables * CgenSupport.WORD_SIZE * (-1), str);
+	CgenSupport.emitPush(CgenSupport.ACC, str);//put self object to stack from $a0
+	CgenSupport.emitPush(CgenSupport.FP, str);//store old frame pointer to stack
+	CgenSupport.emitPush(CgenSupport.RA, str);// store return address in stack, execution of caller will continue at this address	
+	CgenSupport.emitMove(CgenSupport.FP, CgenSupport.T1, str);//set new frame pointer
+
 	str.println("\t# start of object init body");
-	for(Enumeration e = this.features.getElements();e.hasMoreElements();){
-    	    Feature f = (Feature)e.nextElement();
-    	    if(f instanceof attr){
-		attr a = (attr)f;
-		str.println("\t#init for " + a.getName());
-		a.init.code(str);
-    	    }
+	for(int i=0;i<attributes.size();++i){
+	    AttributeDescription attribute = attributes.get(i);
+	    if(!(attribute.initExpr instanceof no_expr)){
+		ObjectDescription desc = CgenScope.getObjectDescription(attribute.name);
+		str.println("\t#init for " + attribute.name);
+		attribute.initExpr.code(str);
+		str.println("\t# assign value from $a0 to " + attribute.name);
+		//load self address to $t1
+		CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, str);
+		//add attribute offset to $t1
+		CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.T1, 
+		    (CgenSupport.DEFAULT_OBJFIELDS + desc.offset) * CgenSupport.WORD_SIZE, str);
+		//load expression value from $a0 to address in $t1
+		CgenSupport.emitStore(CgenSupport.T1, 0,CgenSupport.ACC, str);
+	    }
 	}
 	str.println("\t# end of object init body");
-	//TODO: clear variables from stack
 	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
-	int frameSize = 2 * CgenSupport.WORD_SIZE;
+	CgenSupport.emitLoad(CgenSupport.FP, 2, CgenSupport.SP, str);//restore old frame pointer
+	//frame size inclues return addr, frame pointer, self object, formals and variables
+	int frameSize = (3 + maxActiveVariables) * CgenSupport.WORD_SIZE;
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
-	CgenSupport.emitLoad(CgenSupport.FP, 0, CgenSupport.SP, str);//restore old frame pointer
 	CgenSupport.emitReturn(str);//return control to caller
     }
 }
@@ -790,10 +804,10 @@ class dispatch extends Expression {
 
 	CgenSupport.emitLabelDef(label, s);
 
-	//get method lable from a class table
+	//get method label from a class table
 	AbstractSymbol objectType = this.expr.get_type();
 	if(objectType == TreeConstants.SELF_TYPE){
-	    objectType = CgenContext.currentClass;
+	    objectType = CgenContext.currentClassName;
 	}
 	
 	int labelIndex = CgenContext.classTable.getMethodIndex(objectType, this.name);
@@ -1805,24 +1819,32 @@ class new_ extends Expression {
 	    CgenSupport.emitLoad(CgenSupport.ACC, 0, CgenSupport.SELF, s);
 	    //clone proto object
 	    CgenSupport.emitJal("Object.copy", s);
+	    //store new object to stack
+	    CgenSupport.emitPush(CgenSupport.ACC, s);
 	    
 	    //now we need to init attribues
 	    //hope thant Object.copy didn't override $s0 and it still contains address of the proto object
 	    //address of the init method is on offset 1 from proto object. Load init method label to $t1
 	    CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SELF, s);
 	    //give control to object initializer
-	    CgenSupport.emitJalr(CgenSupport.T1, s);	
-	    //CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
+	    CgenSupport.emitJalr(CgenSupport.T1, s);
+
+	    //restore object from stack to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, 0, CgenSupport.SP, s);
+	    CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
 	}else{
 	    //load proto object to a0
 	    CgenSupport.emitLoadAddress(CgenSupport.ACC, this.type_name + CgenSupport.PROTOBJ_SUFFIX,s);
 	    //clone proto object
 	    CgenSupport.emitJal("Object.copy", s);
+	    //store new object to stack
+	    CgenSupport.emitPush(CgenSupport.ACC, s);
     	    //call init			
 	    CgenSupport.emitJal(this.type_name + CgenSupport.CLASSINIT_SUFFIX, s);
+	    //restore object from stack to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, 0, CgenSupport.SP, s);
+	    CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
 	}
-
-
 
 	s.println("\t# finish new");
     }
@@ -1994,22 +2016,17 @@ class CgenScope {
 	selfObjectOffset = 0;
     }
 
-    public static void addAttributes(class_ classInstance){
+    public static void addAttributes(CgenNode classInstance){
 	objects.enterScope();
-	int attributeOffset = 0;
-	for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
-    	    Feature f = (Feature)e.nextElement();
-    	    if(f instanceof attr){
-		attr a = (attr)f;
-		
-		ObjectDescription desc = new ObjectDescription();
-		desc.name = a.getName();
-		desc.isAttribute = true;
-		desc.offset = attributeOffset;
+	List<AttributeDescription> attributes = classInstance.getAttributes();
+	for(int i=0;i<attributes.size();++i){
+	    AttributeDescription attribute = attributes.get(i);
+	    ObjectDescription desc = new ObjectDescription();
+	    desc.name = attribute.name;
+	    desc.isAttribute = true;
+	    desc.offset = i;
 
-		objects.addId(a.getName(), desc);
-		attributeOffset++;
-    	    }
+	    objects.addId(attribute.name, desc);
 	}
     }
     public static void addFormals(method m){
@@ -2073,5 +2090,6 @@ class CgenContext{
     //global label counter, point to next unused label number
     public static int labelNumber = 0;
     public static CgenClassTable classTable;
-    public static AbstractSymbol currentClass;
+    public static AbstractSymbol currentClassName;
+    public static CgenNode currentClass;
 }

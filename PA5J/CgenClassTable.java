@@ -416,7 +416,7 @@ class CgenClassTable extends SymbolTable {
 	
 
 	if (Flags.cgen_debug) System.out.println("coding global text");
-	codeGlobalText();
+	//codeGlobalText();
 
 	//                 Add your code to emit
 	//                   - object initializer
@@ -515,6 +515,8 @@ class CgenClassTable extends SymbolTable {
 	    CgenScope.init();
 	    CgenScope.enterScope();
 	    CgenScope.addAttributes(classInstance);
+	    CgenContext.currentClassName = classInstance.getName();
+	    CgenContext.currentClass = classInstance;
 
 	    this.str.println(classInstance.getName()+ CgenSupport.CLASSINIT_SUFFIX + ":"); // proto object label
 	    classInstance.codeInitMethod(this.str);
@@ -546,7 +548,8 @@ class CgenClassTable extends SymbolTable {
 		CgenScope.init();
 		CgenScope.enterScope();
 		CgenScope.addAttributes(classInstance);
-		CgenContext.currentClass = classInstance.getName();
+		CgenContext.currentClassName = classInstance.getName();
+		CgenContext.currentClass = classInstance;
 
 		for(Enumeration e = classInstance.getFeatures().getElements();e.hasMoreElements();){
         	    Feature f = (Feature)e.nextElement();
@@ -555,6 +558,7 @@ class CgenClassTable extends SymbolTable {
 
 			CgenScope.enterScope();
 			CgenScope.setMaxObjectsCount(m.variablesCount + m.formals.getLength());
+			CgenContext.selfObjectOffset = m.variablesCount + m.formals.getLength();
 			CgenScope.addFormals(m);
 
 			this.str.println(classInstance.getName() + "." + m.getName() + ":");
