@@ -416,7 +416,7 @@ class CgenClassTable extends SymbolTable {
 	
 
 	if (Flags.cgen_debug) System.out.println("coding global text");
-	//codeGlobalText();
+	codeGlobalText();
 
 	//                 Add your code to emit
 	//                   - object initializer
