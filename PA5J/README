@@ -12,16 +12,16 @@ low addresses
 |xxx	|<- $fp (frame pointer)
 high addresses
 
-Stack state just control is redirected to callee:
+Stack state just before control is redirected to callee:
 
 |   	|<- $sp (stack pointer)
 |arg N	|arguments 0-N
 |...	|
 |arg 0	|
 |...	|
-|	|<- $fp (frame pointer)
+|xxx	|<- $fp (frame pointer)
 
-$a0 containt dispatch object.
+$a0 contains dispatch object.
 
 Structure of an activation method in stack when method body starts executing:
 
@@ -41,4 +41,4 @@ Stack structure when control is returned to caller
 |...	|
 |xxx	|<- $fp (frame pointer)
 
-$a0 contains method result
+$a0 contains method result.

@@ -391,12 +391,13 @@ class class_ extends Class_ {
 		CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.T1, 
 		    (CgenSupport.DEFAULT_OBJFIELDS + desc.offset) * CgenSupport.WORD_SIZE, str);
 		//load expression value from $a0 to address in $t1
-		CgenSupport.emitStore(CgenSupport.T1, 0,CgenSupport.ACC, str);
+		CgenSupport.emitStore(CgenSupport.ACC, 0,CgenSupport.T1, str);
 	    }
 	}
 	str.println("\t# end of object init body");
 	CgenSupport.emitLoad(CgenSupport.RA, 1, CgenSupport.SP, str);//restore return address
 	CgenSupport.emitLoad(CgenSupport.FP, 2, CgenSupport.SP, str);//restore old frame pointer
+	CgenSupport.emitLoad(CgenSupport.ACC, 3, CgenSupport.SP, str);//put self object to $a0
 	//frame size inclues return addr, frame pointer, self object, formals and variables
 	int frameSize = (3 + maxActiveVariables) * CgenSupport.WORD_SIZE;
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, frameSize, str);//remove activation record from stack
