@@ -1179,11 +1179,19 @@ class plus extends Expression {
 	s.println("\t# strore first argument of + in stact and calculate second argument");
 	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
 	this.e2.code(s);
-	s.println("\t# restore first argument of + and perform operation");
-	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	s.println("\t# clone second argument, this object will be used as a result and load its int value to t1");
+	CgenSupport.emitJal("Object.copy", s);
+	//load value from second argument object to $t1
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# restore first argument and load its int value to t2");
+	CgenSupport.emitLoad(CgenSupport.T2, 1, CgenSupport.SP, s);//load first argument from stack
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
-	CgenSupport.emitAdd(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
-	//s.println("\t# end of +");
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T2, s);
+	s.println("\t#perform main operation");
+	CgenSupport.emitAdd(CgenSupport.T1, CgenSupport.T1, CgenSupport.T2, s);//perform the main operation
+	s.println("\t# store value in the result object");
+	CgenSupport.emitStore(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# end of +");
     }
 
     public int countActiveVariables(){
@@ -1929,6 +1937,7 @@ class no_expr extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	//no code for empty expression
     }
 
     public int countActiveVariables(){
