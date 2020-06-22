@@ -1636,6 +1636,30 @@ class leq extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start <=. Evaluate first expression");
+	this.e1.code(s);
+	s.println("\t# put first expression to stack and evaluate second expression");
+	CgenSupport.emitPush(CgenSupport.ACC, s);
+	this.e2.code(s);
+	s.println("\t# load int value of second expression to $t2");
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+
+	s.println("\t# restore first exression result and load its int value to t1");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T1, s);
+
+	s.println("\t# this code assumes that e1<=e2");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(true), s);
+
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBleq(CgenSupport.T1, CgenSupport.T2, label, s);
+	s.println("\t# this code executes if e1>e2");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(false), s);
+
+	CgenSupport.emitLabelDef(label, s);
+	s.println("\t# end of <=");
     }
 
     public int countActiveVariables(){
@@ -1650,7 +1674,7 @@ class leq extends Expression {
 }
 
 
-/** Defines AST constructor 'comp'.
+/** Defines AST constructor 'comp'. (NOT in cool)
     <p>
     See <a href="TreeNode.html">TreeNode</a> for full documentation. */
 class comp extends Expression {
@@ -1685,6 +1709,24 @@ class comp extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start NOT. Evaluate expression");
+	this.e1.code(s);
+	s.println("\t# load value of a Bool object to $t1");
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+
+	s.println("\t# this code assumes that expression is true");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(false), s);
+
+	s.println("\t# checking expression result value");
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBne(CgenSupport.T1, CgenSupport.ZERO, label, s);
+
+	s.println("\t# this code executes if expression is false");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(true), s);
+
+	CgenSupport.emitLabelDef(label, s);
+	s.println("\t# end of NOT");
     }
 
     public int countActiveVariables(){
