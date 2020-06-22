@@ -884,6 +884,29 @@ class cond extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start if. Evaluate predicate");
+	this.pred.code(s);
+	s.println("\t# load value from a Bool evaluation result object to $t1");
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+
+	int labelFalse = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBeqz(CgenSupport.T1, labelFalse, s);
+	s.println("\t# this code executes if condition is true");
+	this.then_exp.code(s);
+	
+	int labelFi = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBranch(labelFi, s);
+
+	CgenSupport.emitLabelDef(labelFalse, s);
+	s.println("\t# this code executes if condition is false");
+	this.else_exp.code(s);
+	
+	CgenSupport.emitLabelDef(labelFi, s);
+
+	CgenSupport.emitMove(CgenSupport.T1, CgenSupport.ACC, s);
+	s.println("\t# end if");
     }
 
     public int countActiveVariables(){
@@ -1926,6 +1949,25 @@ class isvoid extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start isvoid. Evaluate expression");
+	this.e1.code(s);
+	s.println("\t# copy expression value to $t1");
+	CgenSupport.emitMove(CgenSupport.T1, CgenSupport.ACC, s);
+
+	s.println("\t# this code assumes that expression is not void");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(false), s);
+	
+	//check for void
+	s.println("\t# checking  object for void");
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBne(CgenSupport.T1, CgenSupport.ZERO, label, s);
+
+	s.println("\t# this code executes if expression is void");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(true), s);
+
+	CgenSupport.emitLabelDef(label, s);
+	s.println("\t# end isvoid");
     }
 
     public int countActiveVariables(){
