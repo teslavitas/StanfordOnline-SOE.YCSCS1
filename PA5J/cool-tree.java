@@ -1176,8 +1176,8 @@ class plus extends Expression {
     public void code(PrintStream s) {
 	s.println("\t# calculate first argument of +");
 	this.e1.code(s);
-	s.println("\t# strore first argument of + in stact and calculate second argument");
-	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	s.println("\t# strore first argument of + in stack and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stack
 	this.e2.code(s);
 	s.println("\t# clone second argument, this object will be used as a result and load its int value to t1");
 	CgenSupport.emitJal("Object.copy", s);
@@ -1248,13 +1248,22 @@ class sub extends Expression {
     public void code(PrintStream s) {
 	s.println("\t# calculate first argument of -");
 	this.e1.code(s);
-	s.println("\t# strore first argument of - in stact and calculate second argument");
-	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	s.println("\t# strore first argument of - in stack and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stack
 	this.e2.code(s);
-	s.println("\t# restore first argument of - and perform operation");
-	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	s.println("\t# clone second argument, this object will be used as a result and load its int value to t1");
+	CgenSupport.emitJal("Object.copy", s);
+	//load value from second argument object to $t1
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# restore first argument and load its int value to t2");
+	CgenSupport.emitLoad(CgenSupport.T2, 1, CgenSupport.SP, s);//load first argument from stack
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
-	CgenSupport.emitSub(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T2, s);
+	s.println("\t#perform main operation");
+	CgenSupport.emitSub(CgenSupport.T1, CgenSupport.T2, CgenSupport.T1, s);//perform the main operation
+	s.println("\t# store value in the result object");
+	CgenSupport.emitStore(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# end of -");
     }
 
     public int countActiveVariables(){
@@ -1311,13 +1320,22 @@ class mul extends Expression {
     public void code(PrintStream s) {
 	s.println("\t# calculate first argument of *");
 	this.e1.code(s);
-	s.println("\t# strore first argument of * in stact and calculate second argument");
-	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	s.println("\t# strore first argument of * in stack and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stack
 	this.e2.code(s);
-	s.println("\t# restore first argument of * and perform operation");
-	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	s.println("\t# clone second argument, this object will be used as a result and load its int value to t1");
+	CgenSupport.emitJal("Object.copy", s);
+	//load value from second argument object to $t1
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# restore first argument and load its int value to t2");
+	CgenSupport.emitLoad(CgenSupport.T2, 1, CgenSupport.SP, s);//load first argument from stack
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
-	CgenSupport.emitMul(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T2, s);
+	s.println("\t#perform main operation");
+	CgenSupport.emitMul(CgenSupport.T1, CgenSupport.T2, CgenSupport.T1, s);//perform the main operation
+	s.println("\t# store value in the result object");
+	CgenSupport.emitStore(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# end of *");
     }
 
     public int countActiveVariables(){
@@ -1374,13 +1392,22 @@ class divide extends Expression {
     public void code(PrintStream s) {
 	s.println("\t# calculate first argument of /");
 	this.e1.code(s);
-	s.println("\t# strore first argument of / in stact and calculate second argument");
-	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stact
+	s.println("\t# strore first argument of / in stack and calculate second argument");
+	CgenSupport.emitPush(CgenSupport.ACC, s);// store first argument in stack
 	this.e2.code(s);
-	s.println("\t# restore first argument of / and perform operation");
-	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	s.println("\t# clone second argument, this object will be used as a result and load its int value to t1");
+	CgenSupport.emitJal("Object.copy", s);
+	//load value from second argument object to $t1
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# restore first argument and load its int value to t2");
+	CgenSupport.emitLoad(CgenSupport.T2, 1, CgenSupport.SP, s);//load first argument from stack
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
-	CgenSupport.emitDiv(CgenSupport.ACC, CgenSupport.T1, CgenSupport.ACC, s);//perform the main operation
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T2, s);
+	s.println("\t#perform main operation");
+	CgenSupport.emitDiv(CgenSupport.T1, CgenSupport.T2, CgenSupport.T1, s);//perform the main operation
+	s.println("\t# store value in the result object");
+	CgenSupport.emitStore(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# end of /");
     }
 
     public int countActiveVariables(){
