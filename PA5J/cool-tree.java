@@ -904,8 +904,6 @@ class cond extends Expression {
 	this.else_exp.code(s);
 	
 	CgenSupport.emitLabelDef(labelFi, s);
-
-	CgenSupport.emitMove(CgenSupport.T1, CgenSupport.ACC, s);
 	s.println("\t# end if");
     }
 
@@ -1528,6 +1526,30 @@ class lt extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start <. Evaluate first expression");
+	this.e1.code(s);
+	s.println("\t# put first expression to stack and evaluate second expression");
+	CgenSupport.emitPush(CgenSupport.ACC, s);
+	this.e2.code(s);
+	s.println("\t# load int value of second expression to $t2");
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+
+	s.println("\t# restore first exression result and load its int value to t1");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.T1, s);
+
+	s.println("\t# this code assumes that e1<e2");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(true), s);
+
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBlt(CgenSupport.T1, CgenSupport.T2, label, s);
+	s.println("\t# this code executes if e1>e2");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(false), s);
+
+	CgenSupport.emitLabelDef(label, s);
+	s.println("\t# end of <");
     }
 
     public int countActiveVariables(){
@@ -1582,6 +1604,31 @@ class eq extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start =. Evaluate first expression");
+	this.e1.code(s);
+	s.println("\t# put first expression to stack and evaluate second expression");
+	CgenSupport.emitPush(CgenSupport.ACC, s);
+	this.e2.code(s);
+	s.println("\t# load second exression result to $t2");
+	CgenSupport.emitMove(CgenSupport.T2, CgenSupport.ACC, s);
+	s.println("\t# restore first exression result to $t1");
+	CgenSupport.emitLoad(CgenSupport.T1, 1, CgenSupport.SP, s);//load first argument from stack
+	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, CgenSupport.WORD_SIZE, s);
+	
+	s.println("\t# this code assumes that e1=e2");
+	CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(true), s);
+
+	s.println("\t# compare object pointers");
+	int labelEnd = CgenContext.labelNumber;
+	CgenContext.labelNumber++;	
+	CgenSupport.emitBeq(CgenSupport.T1, CgenSupport.T2, labelEnd, s);
+
+	s.println("\t# if we reach here, pointers are not equal. Try to compare values");
+	s.println("\t# if they are equal,the value in $a0 is returned, otherwise $a1 is returned.");
+	CgenSupport.emitLoadBool(CgenSupport.A1, new BoolConst(false), s);
+	CgenSupport.emitJal("equality_test", s);
+	
+	CgenSupport.emitLabelDef(labelEnd, s);
     }
 
     public int countActiveVariables(){
