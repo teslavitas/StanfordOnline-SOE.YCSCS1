@@ -1141,6 +1141,40 @@ class let extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# let start");
+	CgenScope.enterScope();
+	CgenScope.addObject(this.identifier);
+
+	if(!(this.init instanceof no_expr)){
+	    s.println("\t# evaluate init block");
+	    this.init.code(s);
+	}else{
+	    s.println("\t# init block is empty, use default value");
+	    // TODO: If there is no initialization, the variable is initialized to the default value of T1
+	    if(this.type_decl == TreeConstants.Int){
+		CgenSupport.emitLoadInt(CgenSupport.ACC,
+                                (IntSymbol)AbstractTable.inttable.lookup("0"), s);
+	    }else if(this.type_decl == TreeConstants.Bool){
+		CgenSupport.emitLoadBool(CgenSupport.ACC, new BoolConst(false), s);
+	    }else if(this.type_decl == TreeConstants.Str){
+		CgenSupport.emitLoadString(CgenSupport.ACC,
+                                   (StringSymbol)AbstractTable.stringtable.lookup(""), s);
+	    }else {
+		CgenSupport.emitMove(CgenSupport.ACC, CgenSupport.ZERO, s);
+	    }
+	}
+
+	s.println("\t# assign value from $a0 to " + this.identifier);
+	ObjectDescription desc = CgenScope.getObjectDescription(this.identifier);
+	//CgenSupport.emitLoad(CgenSupport.T1, desc.offset, CgenSupport.FP, s);//load variable address to $t1
+	//load expression value from $a0 to address in $t1
+	CgenSupport.emitStore(CgenSupport.ACC, desc.offset,CgenSupport.FP, s);
+	
+	s.println("\t# evaluate body of let");
+	this.body.code(s);	
+
+	CgenScope.exitScope();
+	s.println("\t#let end");
     }
 
     public int countActiveVariables(){
@@ -1478,6 +1512,17 @@ class neg extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# calculate argument of ~");
+	this.e1.code(s);
+	s.println("\t# clone argument, this object will be used as a result and load its int value to t1");
+	CgenSupport.emitJal("Object.copy", s);
+	//load value from second argument object to $t1
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# perform main operation");
+	CgenSupport.emitNeg(CgenSupport.T1, CgenSupport.T1, s);
+	s.println("\t# store value in the result object");
+	CgenSupport.emitStore(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	s.println("\t# end of ~");
     }
 
     public int countActiveVariables(){
