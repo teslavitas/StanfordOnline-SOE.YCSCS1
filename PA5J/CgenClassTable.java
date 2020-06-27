@@ -444,6 +444,31 @@ class CgenClassTable extends SymbolTable {
 	return -1;
     }
 
+    public CaseClassDescription getCaseClassDescription(AbstractSymbol className){
+	CaseClassDescription result = new CaseClassDescription();
+	CgenNode classInstance = (CgenNode)this.probe(className);
+	//result.classTag = this.getClassIndex(classInstance);
+	result.childClassTags = new ArrayList<Integer>();
+	this.fillClassTagList(result.childClassTags, classInstance);
+
+	result.hierarcyLevel = 0;
+	while(classInstance.getName() != TreeConstants.Object_){
+	    AbstractSymbol parent = classInstance.getParent();
+	    classInstance = (CgenNode)this.probe(parent);
+	    result.hierarcyLevel++;
+	}
+
+	return result;
+    }
+
+    private void fillClassTagList(List<Integer> list, CgenNode classInstance){
+	list.add(this.getClassIndex(classInstance));
+	for (Enumeration e = classInstance.getChildren(); e.hasMoreElements(); ) {
+	    CgenNode child = (CgenNode) e.nextElement();
+	    this.fillClassTagList(list, child);
+	}
+    }
+
     private void codeClassNameTable(){
 	this.str.println(CgenSupport.CLASSNAMETAB+":"); // label
 	for(Object definition : this.nds){
@@ -558,6 +583,7 @@ class CgenClassTable extends SymbolTable {
 
 			CgenScope.enterScope();
 			CgenScope.setMaxObjectsCount(m.variablesCount + m.formals.getLength());
+
 			CgenContext.selfObjectOffset = m.variablesCount + m.formals.getLength();
 			CgenScope.addFormals(m);
 
@@ -577,4 +603,9 @@ class CgenClassTable extends SymbolTable {
     }
 }
 			  
-    
+class CaseClassDescription{
+    //distance from  Object in the class hieararchy
+    public int hierarcyLevel;
+    //class tag of this class and all child classes
+    public List<Integer> childClassTags;
+}

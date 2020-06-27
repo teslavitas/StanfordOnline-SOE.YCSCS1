@@ -386,7 +386,7 @@ class class_ extends Class_ {
 		attribute.initExpr.code(str);
 		str.println("\t# assign value from $a0 to " + attribute.name);
 		//load self address to $t1
-		CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, str);
+		CgenSupport.emitLoad(CgenSupport.T1, -CgenContext.selfObjectOffset, CgenSupport.FP, str);
 		//add attribute offset to $t1
 		CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.T1, 
 		    (CgenSupport.DEFAULT_OBJFIELDS + desc.offset) * CgenSupport.WORD_SIZE, str);
@@ -461,6 +461,7 @@ class method extends Feature {
 	// set new frame pointer address to the first formal and store it in $t1
 	CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.SP, this.formals.getLength() * CgenSupport.WORD_SIZE, str);
 	//reserve space for local variables in stack
+	str.println("\t# slots for variables: " + this.variablesCount);
 	CgenSupport.emitAddiu(CgenSupport.SP, CgenSupport.SP, this.variablesCount * CgenSupport.WORD_SIZE * (-1), str);
 	CgenSupport.emitPush(CgenSupport.ACC, str);//put self object to stack from $a0
 	CgenSupport.emitPush(CgenSupport.FP, str);//store old frame pointer to stack
@@ -573,6 +574,7 @@ class branch extends Case {
     public AbstractSymbol name;
     public AbstractSymbol type_decl;
     public Expression expr;
+    public CaseClassDescription desc;
     /** Creates "branch" AST node. 
       *
       * @param lineNumber the line in the source file from which this node came.
@@ -603,6 +605,43 @@ class branch extends Case {
         dump_AbstractSymbol(out, n + 2, name);
         dump_AbstractSymbol(out, n + 2, type_decl);
 	expr.dump_with_types(out, n + 2);
+    }
+
+    public void code(PrintStream s,int labelCaseEnd){
+	//assume argument tag in $t2 and argument value in $a0
+	s.println("\t# branch " + this.name);
+	
+	int labelBranchMatch = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+
+	s.println("\t# go through all subtypes of " + type_decl + " and compare it to arguments type");
+	for(int i = 0;i < this.desc.childClassTags.size(); ++i){
+	    int classTag = this.desc.childClassTags.get(i);
+	    CgenSupport.emitBeq(CgenSupport.T2, Integer.toString(classTag), labelBranchMatch, s);
+	}
+	
+	s.println("\t#if we reach here, branch doesnt match");
+	int labelBranchDoesntMatch = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBranch(labelBranchDoesntMatch, s);
+	
+	s.println("\t# jump here if branch matches argument");
+	CgenSupport.emitLabelDef(labelBranchMatch, s);	
+	
+	CgenScope.enterScope();
+	CgenScope.addObject(this.name);
+	s.println("\t# assign value from $a0 to " + this.name);
+	ObjectDescription desc = CgenScope.getObjectDescription(this.name);
+	CgenSupport.emitStore(CgenSupport.ACC, -desc.offset,CgenSupport.FP, s);
+    
+	s.println("\t# evaluate body of branch");
+	this.expr.code(s);
+	CgenScope.exitScope();
+	s.println("\t# jump to end of case");
+	CgenSupport.emitBranch(labelCaseEnd, s);
+
+	CgenSupport.emitLabelDef(labelBranchDoesntMatch, s);	
+	s.println("\t#branch end " + this.name);
     }
 
     public int countActiveVariables(){
@@ -781,6 +820,7 @@ class dispatch extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start dispatch to " + this.name);
 	//evaluate formals and put their values to stack
 	int paramNumber = 0;
 	for (Enumeration e = actual.getElements(); e.hasMoreElements();) {
@@ -821,6 +861,7 @@ class dispatch extends Expression {
 	//give control to a callee
 	s.println("\t# give control to a callee");
 	CgenSupport.emitJalr(CgenSupport.T1, s);
+	s.println("\t# end dispatch to " + this.name);
     }
 
     public int countActiveVariables(){
@@ -1019,6 +1060,54 @@ class typcase extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start case, evaluate expression");
+	this.expr.code(s);
+
+	s.println("\t# checking argument for void");
+	int labelNotVoid = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBne(CgenSupport.ACC, CgenSupport.ZERO, labelNotVoid, s);
+	s.println("\t# terminate on void");
+	CgenSupport.emitLoadAddress(CgenSupport.ACC, "str_const0", s);//error message
+	CgenSupport.emitLoadImm(CgenSupport.T1, this.lineNumber, s);
+	CgenSupport.emitJal("_case_abort2", s);
+	CgenSupport.emitLabelDef(labelNotVoid, s);
+	
+	s.println("\t#argument is not void, continue here");
+	s.println("\t#load argument class tag to t2");
+	CgenSupport.emitLoad(CgenSupport.T2, CgenSupport.TAG_OFFSET, CgenSupport.ACC, s);
+	
+	//find out in which order to apply branches. Branches with the most specific types, 
+	//furtherest from Object in hierarchy, go first.
+	List<branch> branchList = new ArrayList<branch>();
+	for(int i = 0; i<this.cases.getLength(); ++i){
+    	    branch b = (branch)this.cases.getNth(i);
+	    b.desc = CgenContext.classTable.getCaseClassDescription(b.type_decl);
+	    branchList.add(b);
+	}
+
+	Collections.sort(branchList, new Comparator<branch>(){
+    	    public int compare(branch b1, branch b2){
+        	if(b1.desc.hierarcyLevel == b2.desc.hierarcyLevel)
+	             return 0;
+        	return b1.desc.hierarcyLevel > b2.desc.hierarcyLevel ? -1 : 1;
+    	    }
+	});
+
+
+	int labelCaseEnd = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	for(int i = 0;i < branchList.size(); ++i){
+    	    branch b = branchList.get(i);
+    	    //proccess branch
+	    b.code(s, labelCaseEnd);
+	}
+
+	s.println("\t# no branches match if we are here, show error");
+	CgenSupport.emitJal("_case_abort", s);	
+
+	CgenSupport.emitLabelDef(labelCaseEnd, s);
+	s.println("\t# end case");
     }
 
     public int countActiveVariables(){
@@ -1074,6 +1163,12 @@ class block extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start {} block");
+	for(int i = 0; i<this.body.getLength(); ++i){    
+            Expression e = (Expression)this.body.getNth(i);
+	    e.code(s);
+	}
+	s.println("\t# end {} block");
     }
 
     public int countActiveVariables(){
@@ -1166,9 +1261,8 @@ class let extends Expression {
 
 	s.println("\t# assign value from $a0 to " + this.identifier);
 	ObjectDescription desc = CgenScope.getObjectDescription(this.identifier);
-	//CgenSupport.emitLoad(CgenSupport.T1, desc.offset, CgenSupport.FP, s);//load variable address to $t1
-	//load expression value from $a0 to address in $t1
-	CgenSupport.emitStore(CgenSupport.ACC, desc.offset,CgenSupport.FP, s);
+	//load expression value to $a0
+	CgenSupport.emitStore(CgenSupport.ACC, -desc.offset,CgenSupport.FP, s);
 	
 	s.println("\t# evaluate body of let");
 	this.body.code(s);	
@@ -1998,7 +2092,7 @@ class new_ extends Expression {
 	s.println("\t# start new " + type_name); 
 
 	if(this.type_name == TreeConstants.SELF_TYPE){
-	    CgenSupport.emitLoad(CgenSupport.ACC, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, -CgenContext.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
 	    //load seft class number to $a0
 	    CgenSupport.emitLoad(CgenSupport.ACC, CgenSupport.TAG_OFFSET, CgenSupport.ACC, s);
 	    //load object table to t1
@@ -2184,21 +2278,25 @@ class object extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t#start object ref for " + this.name);
 	if(this.name == TreeConstants.self){
-	    CgenSupport.emitLoad(CgenSupport.ACC, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, -CgenContext.selfObjectOffset, CgenSupport.FP, s);//load self to $a0
 	    return;
 	}
 	
 	ObjectDescription desc = CgenScope.getObjectDescription(this.name);
 	if(desc.isAttribute){
+	    s.println("\t# object is an attribute, it is located in the self object");
 	    //attributes are located in the self object starting with offset 3
-	    CgenSupport.emitLoad(CgenSupport.T1, CgenScope.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
+	    CgenSupport.emitLoad(CgenSupport.T1, -CgenContext.selfObjectOffset, CgenSupport.FP, s);//load self to $t1
 	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset + CgenSupport.DEFAULT_OBJFIELDS, 
 		CgenSupport.T1, s);//load attribute to $a0
 	}else{
+	    s.println("\t# object is a formal parameter or inner variable");
 	    //formal parameters and variables are located in the frame
-	    CgenSupport.emitLoad(CgenSupport.ACC, desc.offset, CgenSupport.FP, s);//load to $a0
+	    CgenSupport.emitLoad(CgenSupport.ACC, -desc.offset, CgenSupport.FP, s);//load to $a0
 	}
+	s.println("\t#end object ref for " + this.name);
     }
 
     public int countActiveVariables(){
@@ -2219,14 +2317,11 @@ class CgenScope {
     private static SymbolTable objects;
     //write an error message if there is more frame objects then max
     private static int maxObjectsCount;
-    //offset of the self object relative to frame pointer in stack
-    public static int selfObjectOffset;
 
     public static void init(){
 	objects = new SymbolTable();
 	maxObjectsCount = -1;
 	objectOffset = 0;
-	selfObjectOffset = 0;
     }
 
     public static void addAttributes(CgenNode classInstance){
