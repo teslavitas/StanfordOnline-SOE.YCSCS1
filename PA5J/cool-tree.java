@@ -628,9 +628,9 @@ class branch extends Case {
 	s.println("\t# jump here if branch matches argument");
 	CgenSupport.emitLabelDef(labelBranchMatch, s);	
 	
+	s.println("\t# assign value from $a0 to " + this.name);
 	CgenScope.enterScope();
 	CgenScope.addObject(this.name);
-	s.println("\t# assign value from $a0 to " + this.name);
 	ObjectDescription desc = CgenScope.getObjectDescription(this.name);
 	CgenSupport.emitStore(CgenSupport.ACC, -desc.offset,CgenSupport.FP, s);
     
@@ -1311,9 +1311,7 @@ class let extends Expression {
       * */
     public void code(PrintStream s) {
 	s.println("\t# let start");
-	CgenScope.enterScope();
-	CgenScope.addObject(this.identifier);
-
+	
 	if(!(this.init instanceof no_expr)){
 	    s.println("\t# evaluate init block");
 	    this.init.code(s);
@@ -1334,10 +1332,13 @@ class let extends Expression {
 	}
 
 	s.println("\t# assign value from $a0 to " + this.identifier);
+	CgenScope.enterScope();
+	CgenScope.addObject(this.identifier);
 	ObjectDescription desc = CgenScope.getObjectDescription(this.identifier);
 	//load expression value to $a0
 	CgenSupport.emitStore(CgenSupport.ACC, -desc.offset,CgenSupport.FP, s);
 	
+
 	s.println("\t# evaluate body of let");
 	this.body.code(s);	
 
@@ -2172,8 +2173,8 @@ class new_ extends Expression {
 	    //load object table to t1
 	    CgenSupport.emitLoadAddress(CgenSupport.T1, CgenSupport.CLASSOBJTAB, s);
 	    //address of proto objects has offset 2*$a0 from t1
-	    //multiply $a0 by 2 by shifting and store in $a0
-	    CgenSupport.emitSll(CgenSupport.ACC, CgenSupport.ACC, 1, s);
+	    //multiply $a0 by 2 by shifting and store in $a0 and then by 4 to get offset in bytes
+	    CgenSupport.emitSll(CgenSupport.ACC, CgenSupport.ACC, 3, s);
 	    //load address of proto object to $s0 by addit address of the object table and offset
 	    CgenSupport.emitAddu(CgenSupport.SELF, CgenSupport.ACC, CgenSupport.T1, s);
 	    //load proto object to $a0
