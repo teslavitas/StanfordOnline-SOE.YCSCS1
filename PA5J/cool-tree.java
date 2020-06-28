@@ -691,6 +691,23 @@ class assign extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start assign to " + this.name + " .Evaluate expression");
+	this.expr.code(s);
+	ObjectDescription desc = CgenScope.getObjectDescription(this.name);
+	if(desc.isAttribute){
+	    s.println("\t# object is an attribute, it is located in the self object");
+	    //load self address to $t1
+	    CgenSupport.emitLoad(CgenSupport.T1, -CgenContext.selfObjectOffset, CgenSupport.FP, s);
+	    //add attribute offset to $t1
+	    CgenSupport.emitAddiu(CgenSupport.T1, CgenSupport.T1, 
+		(CgenSupport.DEFAULT_OBJFIELDS + desc.offset) * CgenSupport.WORD_SIZE, s);
+	    //load expression value from $a0 to address in $t1
+	    CgenSupport.emitStore(CgenSupport.ACC, 0, CgenSupport.T1, s);
+	}else{
+	    s.println("\t# object is a formal parameter or inner variable");
+	    CgenSupport.emitStore(CgenSupport.ACC, -desc.offset,CgenSupport.FP, s);
+	}
+	s.println("\t# end assign to " + this.name);
     }
 
     public int countActiveVariables(){
@@ -753,6 +770,41 @@ class static_dispatch extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start static dispatch to " + this.name);
+	//evaluate formals and put their values to stack
+	int paramNumber = 0;
+	for (Enumeration e = actual.getElements(); e.hasMoreElements();) {
+	    Expression ex = (Expression)e.nextElement();
+	    s.println("\t# evaluating formal parameter " + paramNumber + " and putting it to stack");
+	    ex.code(s);
+	    CgenSupport.emitPush(CgenSupport.ACC, s);//store param value in stack
+        }
+	//evaluate expression
+	s.println("\t# evaluating dispatch object");
+	this.expr.code(s);
+	
+	//check for void
+	s.println("\t# checking dispatch object for void");
+	int label = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitBne(CgenSupport.ACC, CgenSupport.ZERO, label, s);
+	s.println("\t# terminate on void dispatch");
+	CgenSupport.emitLoadAddress(CgenSupport.ACC, "str_const0", s);//error message
+	CgenSupport.emitLoadImm(CgenSupport.T1, this.lineNumber, s);
+	CgenSupport.emitJal("_dispatch_abort", s);
+
+	CgenSupport.emitLabelDef(label, s);
+
+	CgenSupport.emitLoadAddress(CgenSupport.T1, this.type_name + CgenSupport.DISPTAB_SUFFIX, s);
+	s.println("\t# load method label from dispatch table to $t1. class " + this.type_name + " method "
+	    + this.name);
+	int labelIndex = CgenContext.classTable.getMethodIndex(this.type_name, this.name);
+	CgenSupport.emitLoad(CgenSupport.T1, labelIndex, CgenSupport.T1, s);
+	
+	//give control to a callee
+	s.println("\t# give control to a callee");
+	CgenSupport.emitJalr(CgenSupport.T1, s);
+	s.println("\t# end static dispatch to " + this.name);
     }
 
     public int countActiveVariables(){
@@ -1004,6 +1056,28 @@ class loop extends Expression {
       * @param s the output stream 
       * */
     public void code(PrintStream s) {
+	s.println("\t# start while");
+	int labelLoop = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	CgenSupport.emitLabelDef(labelLoop, s);
+
+	s.println("\t# evaluate predicate");
+	this.pred.code(s);
+	s.println("\t# load value from a Bool evaluation result object to $t1");
+	CgenSupport.emitLoad(CgenSupport.T1, CgenSupport.DEFAULT_OBJFIELDS, CgenSupport.ACC, s);
+	int labelFalse = CgenContext.labelNumber;
+	CgenContext.labelNumber++;
+	s.println("\t# check predicate");
+	CgenSupport.emitBeqz(CgenSupport.T1, labelFalse, s);
+	s.println("\t# execute loop body");
+	this.body.code(s);
+	s.println("\t# jump to loop start");
+	CgenSupport.emitBranch(labelLoop, s);
+	CgenSupport.emitLabelDef(labelFalse, s);
+	
+	s.println("\t# return void");
+	CgenSupport.emitMove(CgenSupport.ACC, CgenSupport.ZERO, s);
+	s.println("\t# end while");
     }
 
     public int countActiveVariables(){
