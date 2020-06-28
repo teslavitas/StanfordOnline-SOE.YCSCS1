@@ -1,6 +1,3 @@
-Write-up for PA5
-----------------
-
 Activation record (frame) structure
 -----------------------------------
 Note: Stack grows from high addresses to low.
