@@ -125,7 +125,13 @@ class CgenNode extends class_ {
 	List<MethodDescription> result = new ArrayList<MethodDescription>();
         if(this.getName() != TreeConstants.Object_){
             CgenNode parent = this.getParentNd();
-            result = parent.getMethods();
+            List<MethodDescription> parentResult = parent.getMethods();
+	    for(int i=0;i<parentResult.size();++i){
+		MethodDescription newEntry = new MethodDescription();
+		newEntry.className = parentResult.get(i).className;
+		newEntry.methodName = parentResult.get(i).methodName;
+		result.add(newEntry);
+	    }
         }
 
         for(Enumeration e = this.features.getElements();e.hasMoreElements();){
